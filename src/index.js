@@ -36,6 +36,11 @@ import redis from '../config/redis.js';
 // ── Bot setup ────────────────────────────────────────────────────
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
+bot.telegram.getMe().then(me => {
+  console.log('[Bot] Username:', me.username);
+  bot.options.username = me.username;
+});
+
 bot.use((ctx, next) => {
   console.log('[Update]', JSON.stringify(ctx.update, null, 2));
   return next();
