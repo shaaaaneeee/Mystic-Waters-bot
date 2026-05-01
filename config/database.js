@@ -6,17 +6,22 @@ const { Pool } = pg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 20,
+
+  ssl: {
+    rejectUnauthorized: false,
+  },
+
+  max: 10,
   idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000,
+  connectionTimeoutMillis: 10_000,
 });
 
 pool.on('error', (err) => {
-  console.error('[DB] Unexpected pool error:', err.message);
+  console.error('[DB] Unexpected error', err);
 });
 
 // Thin wrapper: auto-releases clients, surfaces errors cleanly
-export async function query(text, params) {
+export async function query(text, params, retries = 2) {
   const start = Date.now();
   try {
     const result = await pool.query(text, params);
@@ -25,7 +30,11 @@ export async function query(text, params) {
     }
     return result;
   } catch (err) {
-    console.error('[DB] Query error:', err.message, '\nSQL:', text);
+    if (retries > 0) {
+      console.log('[DB] Retrying query...', { retries, text: text.slice(0, 80) });
+      return query(text, params, retries - 1);
+    }
+    console.error('[DB] Query error:', err, '\nSQL:', text);
     throw err;
   }
 }
@@ -45,5 +54,11 @@ export async function getClient() {
   };
   return client;
 }
+
+setInterval(() => {
+  pool.query('SELECT 1').catch((err) => {
+    console.error('[DB] Keepalive ping failed', err);
+  });
+}, 20_000);
 
 export default pool;
