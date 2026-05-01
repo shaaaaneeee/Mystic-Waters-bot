@@ -73,11 +73,12 @@ bot.command('start', (ctx) => {
 const app = express();
 app.use(express.json());
 
-const WEBHOOK_PATH = `/webhook/${process.env.WEBHOOK_SECRET}`;
+const WEBHOOK_PATH = `/webhook/THISISASECRET`;
 
 app.post(WEBHOOK_PATH, (req, res) => {
+  console.log('[Webhook] Hit! Body:', JSON.stringify(req.body).slice(0, 200));
   bot.handleUpdate(req.body, res).catch((err) => {
-    console.error('[Webhook] handleUpdate error:', err.message);
+    console.error('[Webhook] handleUpdate error:', err);
     res.sendStatus(500);
   });
 });
