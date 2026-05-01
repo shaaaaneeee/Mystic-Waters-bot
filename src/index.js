@@ -36,10 +36,14 @@ import redis from '../config/redis.js';
 // ── Bot setup ────────────────────────────────────────────────────
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
+bot.use((ctx, next) => {
+  console.log('[Update]', JSON.stringify(ctx.update, null, 2));
+  return next();
+});
+
 // ── Global error handler ─────────────────────────────────────────
 bot.catch((err, ctx) => {
-  console.error(`[Bot] Error for update ${ctx.updateType}:`, err);
-  // Don't crash the process; swallow gracefully
+  console.error('[Bot] Error:', err);
 });
 
 // ── Comment-based claim listener ─────────────────────────────────
