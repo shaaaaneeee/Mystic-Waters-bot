@@ -38,7 +38,7 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // ── Global error handler ─────────────────────────────────────────
 bot.catch((err, ctx) => {
-  console.error(`[Bot] Error for update ${ctx.updateType}:`, err.message);
+  console.error(`[Bot] Error for update ${ctx.updateType}:`, err);
   // Don't crash the process; swallow gracefully
 });
 
