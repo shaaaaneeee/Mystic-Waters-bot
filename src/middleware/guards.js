@@ -12,6 +12,9 @@ const COMMENT_GROUP_ID = parseInt(process.env.COMMENT_GROUP_ID, 10);
  * Use on admin-only command handlers.
  */
 export function adminOnly(ctx, next) {
+  console.log('[adminOnly] from.id:', ctx.from?.id, 'type:', typeof ctx.from?.id);
+  console.log('[adminOnly] ADMIN_IDS:', process.env.ADMIN_IDS);
+  console.log('[adminOnly] has access:', ADMIN_IDS.has(ctx.from?.id));
   if (!ADMIN_IDS.has(ctx.from?.id)) {
     return ctx.reply('⛔ Admin only.');
   }
