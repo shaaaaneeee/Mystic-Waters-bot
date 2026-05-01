@@ -31,4 +31,13 @@ export const UserModel = {
     );
     return rows[0] || null;
   },
+
+  async findByUsername(username) {
+    const clean = username.replace(/^@/, '').toLowerCase();
+    const { rows } = await query(
+      'SELECT * FROM users WHERE LOWER(username) = $1 LIMIT 1',
+      [clean]
+    );
+    return rows[0] || null;
+  },
 };

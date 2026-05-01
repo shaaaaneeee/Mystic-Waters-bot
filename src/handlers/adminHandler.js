@@ -29,6 +29,7 @@
 
 import { ProductModel } from '../models/product.js';
 import { InvoiceModel } from '../models/invoice.js';
+import { UserModel } from '../models/user.js';
 import {
   sendInvoiceToUser,
   sendAllPendingInvoices,
@@ -141,31 +142,51 @@ export async function handleViewClaims(ctx) {
   );
 }
 
-// ── /invoice <telegram_id> ────────────────────────────────────────
+// ── /invoice <@username | telegram_id> ───────────────────────────
 export async function handleSendInvoice(ctx) {
   const args = ctx.message.text.split(' ');
   const rawId = args[1];
 
   if (!rawId) {
-    return ctx.reply('Usage: /invoice <telegram\\_user\\_id>', { parse_mode: 'Markdown' });
+    return ctx.reply(
+      'Usage: `/invoice @username` or `/invoice <telegram_id>`',
+      { parse_mode: 'Markdown' }
+    );
   }
 
-  const telegramId = parseInt(rawId, 10);
+  let telegramId;
+  let displayHandle = rawId;
+
+  if (rawId.startsWith('@')) {
+    const user = await UserModel.findByUsername(rawId);
+    if (!user) {
+      return ctx.reply(`❌ No user found with username ${rawId}.\nThey must have claimed at least once.`);
+    }
+    telegramId = user.telegram_id;
+  } else {
+    telegramId = parseInt(rawId, 10);
+    if (isNaN(telegramId)) {
+      return ctx.reply('❌ Invalid input. Use `@username` or a numeric Telegram ID.', { parse_mode: 'Markdown' });
+    }
+  }
 
   try {
     const invoice = await sendInvoiceToUser(ctx.telegram, telegramId);
 
     if (!invoice) {
-      return ctx.reply(`ℹ️ No pending claims for user ${telegramId}.`);
+      return ctx.reply(`ℹ️ No pending claims for ${displayHandle}.`);
     }
 
     return ctx.reply(
-      `✅ Invoice #${invoice.id} sent to user ${telegramId}\n` +
+      `✅ Invoice #${invoice.id} sent to ${displayHandle}\n` +
       `Total: $${parseFloat(invoice.total_amount).toFixed(2)}`
     );
   } catch (err) {
     console.error('[adminHandler] sendInvoice error:', err.message);
-    return ctx.reply(`❌ Failed to send invoice: ${err.message}`);
+    const reason = err.message?.includes("bot can't initiate")
+      ? `${displayHandle} must send /start to the bot in DM first`
+      : err.message;
+    return ctx.reply(`❌ Failed to send invoice: ${reason}`);
   }
 }
 
@@ -180,7 +201,13 @@ export async function handleSendAllInvoices(ctx) {
 
   let summary = `✅ Sent ${succeeded} invoice(s).`;
   if (failed.length > 0) {
-    summary += `\n⚠️ Failed for: ${failed.map(f => f.telegramId).join(', ')}`;
+    const failLines = failed.map(f => {
+      const reason = f.error?.includes("bot can't initiate")
+        ? 'must send /start to the bot in DM first'
+        : f.error;
+      return `  • ${f.handle} — ${reason}`;
+    });
+    summary += `\n⚠️ Failed:\n${failLines.join('\n')}`;
   }
 
   return ctx.reply(summary);
@@ -219,7 +246,7 @@ export function handleHelp(ctx) {
     `/claims <msg\\_id> — Who claimed a product\n` +
     `/pending — Users with uninvoiced claims\n\n` +
     `*Invoicing*\n` +
-    `/invoice <telegram\\_id> — Invoice one user\n` +
+    `/invoice @username — Invoice one user\n` +
     `/invoiceall — Invoice all pending users`,
     { parse_mode: 'Markdown' }
   );

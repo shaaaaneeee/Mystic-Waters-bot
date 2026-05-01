@@ -80,11 +80,12 @@ export async function sendAllPendingInvoices(bot) {
   const results = [];
 
   for (const row of pending) {
+    const handle = row.username ? `@${row.username}` : (row.first_name || `ID:${row.telegram_id}`);
     try {
       const invoice = await sendInvoiceToUser(bot, row.telegram_id);
-      results.push({ telegramId: row.telegram_id, success: true, invoice });
+      results.push({ handle, success: true, invoice });
     } catch (err) {
-      results.push({ telegramId: row.telegram_id, success: false, error: err.message });
+      results.push({ handle, success: false, error: err.message });
     }
   }
 
