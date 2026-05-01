@@ -15,8 +15,12 @@ export const ClaimModel = {
   },
 
   // Check if user already claimed this product
-  async exists({ userId, productId }) {
-    const { rows } = await query(
+  async exists({ userId, productId }, client) {
+    const execute = client
+      ? (text, params) => client.query(text, params)
+      : query;
+
+    const { rows } = await execute(
       `SELECT id FROM claims
        WHERE user_id = $1 AND product_id = $2`,
       [userId, productId]

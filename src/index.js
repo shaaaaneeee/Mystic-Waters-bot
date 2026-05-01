@@ -46,16 +46,6 @@ bot.use((ctx, next) => {
   return next();
 });
 
-// ── Global error handler ─────────────────────────────────────────
-bot.catch((err, ctx) => {
-  console.error('[Bot] Error:', err);
-});
-
-// ── Comment-based claim listener ─────────────────────────────────
-// This fires on any text message in the linked comment group.
-// commentOnly middleware filters to channel-post comments only.
-bot.on('text', commentOnly, handleClaim);
-
 // ── Admin commands (DM only, protected) ──────────────────────────
 bot.command('newproduct', adminOnly, handleNewProduct);
 bot.command('stock',      adminOnly, handleStock);
@@ -66,6 +56,18 @@ bot.command('pending',    adminOnly, handlePending);
 
 // ── Help command ──────────────────────────────────────────────────
 bot.command('start', (ctx) => {
+  ctx.reply(
+    '🐠 *Mystic Waters Bot*\n\n' +
+    'Comment `claim` on any product post to reserve it!\n\n' +
+    'You\'ll receive an invoice once the admin triggers it.',
+    { parse_mode: 'Markdown' }
+  );
+});
+
+// ── Comment-based claim listener ─────────────────────────────────
+// This fires on any text message in the linked comment group.
+// commentOnly middleware filters to channel-post comments only.
+bot.on('text', commentOnly, handleClaim);
   ctx.reply(
     '🐠 *Mystic Waters Bot*\n\n' +
     'Comment `claim` on any product post to reserve it!\n\n' +
@@ -96,7 +98,10 @@ async function bootstrap() {
   await redis.connect();
 
   const PORT = parseInt(process.env.PORT || '3000', 10);
-  const WEBHOOK_URL = process.env.WEBHOOK_URL + WEBHOOK_PATH;
+  const normalizedWebhookBase = (process.env.WEBHOOK_URL || '')
+    .replace(/\/+$/, '')
+    .replace(/\/webhook$/i, '');
+  const WEBHOOK_URL = normalizedWebhookBase + WEBHOOK_PATH;
 
   if (process.env.NODE_ENV === 'production') {
     await bot.telegram.setWebhook(WEBHOOK_URL, {

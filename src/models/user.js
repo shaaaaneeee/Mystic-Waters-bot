@@ -4,8 +4,12 @@ import { query } from '../../config/database.js';
 export const UserModel = {
 
   // Upsert user from Telegram context — called on every claim
-  async upsert({ telegramId, username, firstName, lastName }) {
-    const { rows } = await query(
+  async upsert({ telegramId, username, firstName, lastName }, client) {
+    const execute = client
+      ? (text, params) => client.query(text, params)
+      : query;
+
+    const { rows } = await execute(
       `INSERT INTO users (telegram_id, username, first_name, last_name)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (telegram_id)

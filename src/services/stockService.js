@@ -64,19 +64,19 @@ export async function attemptClaim({ telegramUser, product }) {
     try {
       await client.query('BEGIN');
 
-      // Upsert user
+      // Upsert user inside the same transaction
       const user = await UserModel.upsert({
         telegramId: telegramUser.id,
         username:   telegramUser.username,
         firstName:  telegramUser.first_name,
         lastName:   telegramUser.last_name,
-      });
+      }, client);
 
-      // Duplicate claim guard
+      // Duplicate claim guard inside the same transaction
       const alreadyClaimed = await ClaimModel.exists({
         userId: user.id,
         productId,
-      });
+      }, client);
       if (alreadyClaimed) {
         await client.query('ROLLBACK');
         return { success: false, reason: 'duplicate' };
