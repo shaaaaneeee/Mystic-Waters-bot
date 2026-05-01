@@ -34,6 +34,11 @@ export const InvoiceModel = {
     }
   },
 
+  async deleteById(invoiceId) {
+    // invoice_claims rows are removed automatically via ON DELETE CASCADE
+    await query(`DELETE FROM invoices WHERE id = $1`, [invoiceId]);
+  },
+
   async markSent(invoiceId) {
     const { rows } = await query(
       `UPDATE invoices SET status = 'sent', sent_at = NOW()

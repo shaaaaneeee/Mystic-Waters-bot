@@ -60,9 +60,12 @@ export async function sendInvoiceToUser(bot, telegramId) {
 
   const message = formatInvoice(user, claims, invoice.id);
 
-  await bot.telegram.sendMessage(telegramId, message, {
-    parse_mode: 'Markdown',
-  });
+  try {
+    await bot.sendMessage(telegramId, message, { parse_mode: 'Markdown' });
+  } catch (err) {
+    await InvoiceModel.deleteById(invoice.id);
+    throw err;
+  }
 
   await InvoiceModel.markSent(invoice.id);
   return invoice;

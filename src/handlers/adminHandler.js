@@ -186,6 +186,45 @@ export async function handleSendAllInvoices(ctx) {
   return ctx.reply(summary);
 }
 
+// ── /start (admin variant) ────────────────────────────────────────
+export function handleAdminStart(ctx) {
+  const name = ctx.from?.first_name || 'Admin';
+  return ctx.reply(
+    `🐠 *Welcome, ${name}!*\n\n` +
+    `You're managing *Mystic Waters Bot*. Here's how it works:\n\n` +
+    `*Workflow*\n` +
+    `1. Post a product to your Telegram channel\n` +
+    `2. Register it: \`/newproduct <msg_id> <price> <qty> <name>\`\n` +
+    `3. Buyers comment \`claim\` in the linked discussion group\n` +
+    `4. The bot tracks stock atomically — no overselling\n` +
+    `5. Invoice buyers when ready: \`/invoiceall\`\n\n` +
+    `*Quick Status*\n` +
+    `/stock — Current inventory\n` +
+    `/pending — Users awaiting invoices\n\n` +
+    `Type /help for the full command reference.`,
+    { parse_mode: 'Markdown' }
+  );
+}
+
+// ── /help ─────────────────────────────────────────────────────────
+export function handleHelp(ctx) {
+  return ctx.reply(
+    `📋 *Admin Commands*\n\n` +
+    `*Products*\n` +
+    `\`/newproduct <msg_id> <price> <qty> <name>\`\n` +
+    `  Register a product from a channel post\n` +
+    `  e.g. \`/newproduct 42 12.50 3 Blue Tang Fish\`\n\n` +
+    `*View Status*\n` +
+    `/stock — All products + stock levels\n` +
+    `/claims <msg\\_id> — Who claimed a product\n` +
+    `/pending — Users with uninvoiced claims\n\n` +
+    `*Invoicing*\n` +
+    `/invoice <telegram\\_id> — Invoice one user\n` +
+    `/invoiceall — Invoice all pending users`,
+    { parse_mode: 'Markdown' }
+  );
+}
+
 // ── /pending ──────────────────────────────────────────────────────
 export async function handlePending(ctx) {
   const rows = await InvoiceModel.getPendingSummary();

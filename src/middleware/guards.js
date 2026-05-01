@@ -7,6 +7,10 @@ const ADMIN_IDS = new Set(
 
 const COMMENT_GROUP_ID = parseInt(process.env.COMMENT_GROUP_ID, 10);
 
+export function isAdmin(userId) {
+  return ADMIN_IDS.has(userId);
+}
+
 export function adminOnly(ctx, next) {
   if (!ADMIN_IDS.has(ctx.from?.id)) {
     return ctx.reply('⛔ Admin only.');

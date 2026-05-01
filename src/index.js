@@ -3,7 +3,7 @@ import 'dotenv/config';
 import { Telegraf } from 'telegraf';
 import express from 'express';
 
-import { commentOnly, adminOnly } from './middleware/guards.js';
+import { commentOnly, adminOnly, isAdmin } from './middleware/guards.js';
 import { handleClaim }           from './handlers/claimHandler.js';
 import {
   handleNewProduct,
@@ -12,6 +12,8 @@ import {
   handleSendInvoice,
   handleSendAllInvoices,
   handlePending,
+  handleAdminStart,
+  handleHelp,
 } from './handlers/adminHandler.js';
 import redis from '../config/redis.js';
 
@@ -32,10 +34,12 @@ bot.command('claims',     adminOnly, handleViewClaims);
 bot.command('invoice',    adminOnly, handleSendInvoice);
 bot.command('invoiceall', adminOnly, handleSendAllInvoices);
 bot.command('pending',    adminOnly, handlePending);
+bot.command('help',       adminOnly, handleHelp);
 
 bot.command('start', (ctx) => {
-  ctx.reply(
-    '🐠 *Mystic Waters Bot*\n\nComment `claim` on any product post to reserve it!\n\nYou\'ll receive an invoice once the admin triggers it.',
+  if (isAdmin(ctx.from?.id)) return handleAdminStart(ctx);
+  return ctx.reply(
+    '🐠 *Mystic Waters Bot*\n\nComment `claim` on any product post in the discussion group to reserve it.\n\nYou\'ll receive an invoice via DM once the admin triggers it.',
     { parse_mode: 'Markdown' }
   );
 });
