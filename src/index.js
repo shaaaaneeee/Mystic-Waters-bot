@@ -1,6 +1,6 @@
 // src/index.js
 import 'dotenv/config';
-import { Telegraf } from 'telegraf';
+import { Telegraf, session, Scenes } from 'telegraf';
 import express from 'express';
 
 import { commentOnly, adminOnly, isAdmin } from './middleware/guards.js';
@@ -16,6 +16,7 @@ import {
   handleHelp,
 } from './handlers/adminHandler.js';
 import redis from '../config/redis.js';
+import { newProductWizard, NEW_PRODUCT_WIZARD_ID } from './scenes/newProductWizard.js';
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
@@ -23,10 +24,16 @@ bot.catch((err, ctx) => {
   console.error(`[Bot] Error for ${ctx.updateType}:`, err.message, err.stack);
 });
 
+bot.use(session());
+const stage = new Scenes.Stage([newProductWizard]);
+bot.use(stage.middleware());
+
 // ── CRITICAL: Commands registered BEFORE bot.on('text') ──────────
 // Telegraf processes handlers in order. bot.on('text') matches ALL
 // text including commands. commentOnly drops DMs silently (DM ≠ group).
 // Commands must be registered first so they are matched before the text handler.
+
+bot.command('cancel', adminOnly, (ctx) => ctx.reply('Nothing to cancel.'));
 
 bot.command('newproduct', adminOnly, handleNewProduct);
 bot.command('stock',      adminOnly, handleStock);
@@ -42,6 +49,24 @@ bot.command('start', (ctx) => {
     '🐠 *Mystic Waters Bot*\n\nComment `claim` on any product post in the discussion group to reserve it.\n\nYou\'ll receive an invoice via DM once the admin triggers it.',
     { parse_mode: 'Markdown' }
   );
+});
+
+// ── Forward channel post in admin DM → enter product wizard ──────────────────
+bot.on('message', adminOnly, async (ctx, next) => {
+  const msg = ctx.message;
+  if (msg.chat.type !== 'private') return next();
+
+  const fwdChatId = msg.forward_from_chat?.id;
+  const isFromChannel = fwdChatId &&
+    String(fwdChatId) === String(process.env.CHANNEL_ID);
+  if (!isFromChannel) return next();
+
+  const messageId = msg.forward_from_message_id;
+  if (!messageId) {
+    return ctx.reply('⚠️ Could not read the post ID from that forwarded message.');
+  }
+
+  return ctx.scene.enter(NEW_PRODUCT_WIZARD_ID, { messageId });
 });
 
 // Skip bot_command entities so /commands never reach handleClaim
