@@ -221,7 +221,7 @@ export function handleAdminStart(ctx) {
     `You're managing *Mystic Waters Bot*. Here's how it works:\n\n` +
     `*Workflow*\n` +
     `1. Post a product to your Telegram channel\n` +
-    `2. Register it: \`/newproduct <msg_id> <price> <qty> <name>\`\n` +
+    `2. Forward the post to this DM — bot guides you step by step\n` +
     `3. Buyers comment \`claim\` in the linked discussion group\n` +
     `4. The bot tracks stock atomically — no overselling\n` +
     `5. Invoice buyers when ready: \`/invoiceall\`\n\n` +
@@ -238,9 +238,8 @@ export function handleHelp(ctx) {
   return ctx.reply(
     `📋 *Admin Commands*\n\n` +
     `*Products*\n` +
-    `\`/newproduct <msg_id> <price> <qty> <name>\`\n` +
-    `  Register a product from a channel post\n` +
-    `  e.g. \`/newproduct 42 12.50 3 Blue Tang Fish\`\n\n` +
+    `Forward a channel post to this DM → bot walks you through setup\n` +
+    `\`/newproduct <msg_id> <price> <qty> <name>\` — manual shortcut\n\n` +
     `*View Status*\n` +
     `/stock — All products + stock levels\n` +
     `/claims <msg\\_id> — Who claimed a product\n` +
