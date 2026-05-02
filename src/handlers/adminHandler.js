@@ -236,17 +236,29 @@ export function handleAdminStart(ctx) {
 // ── /help ─────────────────────────────────────────────────────────
 export function handleHelp(ctx) {
   return ctx.reply(
-    `📋 *Admin Commands*\n\n` +
-    `*Products*\n` +
-    `Forward a channel post to this DM → bot walks you through setup\n` +
-    `\`/newproduct <msg_id> <price> <qty> <name>\` — manual shortcut\n\n` +
-    `*View Status*\n` +
-    `/stock — All products + stock levels\n` +
-    `/claims <msg\\_id> — Who claimed a product\n` +
-    `/pending — Users with uninvoiced claims\n\n` +
-    `*Invoicing*\n` +
-    `/invoice @username — Invoice one user\n` +
-    `/invoiceall — Invoice all pending users`,
+    `📋 *Admin Command Reference*\n\n` +
+
+    `*📦 Adding Products*\n` +
+    `Forward a channel post to this DM\n` +
+    `  → Bot guides you through name, price & quantity\n` +
+    `\`/newproduct <msg\\_id> <price> <qty> <name>\`\n` +
+    `  → Manual shortcut (skips the wizard)\n` +
+    `  e.g. \`/newproduct 42 12.50 3 Blue Tang\`\n\n` +
+
+    `*📊 Viewing Status*\n` +
+    `/stock — All products with stock levels\n` +
+    `/claims <msg\\_id> — Who claimed a specific product\n` +
+    `/pending — All users with uninvoiced claims\n\n` +
+
+    `*🧾 Invoicing*\n` +
+    `/invoice @username — Send invoice to one user\n` +
+    `/invoice <telegram\\_id> — Send by Telegram ID\n` +
+    `/invoiceall — Send invoices to all pending users\n\n` +
+
+    `*⚙️ Other*\n` +
+    `/start — Show the welcome & workflow guide\n` +
+    `/cancel — Exit the product wizard mid-setup\n` +
+    `/help — Show this reference`,
     { parse_mode: 'Markdown' }
   );
 }
