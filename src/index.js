@@ -52,9 +52,10 @@ bot.command('start', (ctx) => {
 });
 
 // ── Forward channel post in admin DM → enter product wizard ──────────────────
-bot.on('message', adminOnly, async (ctx, next) => {
+bot.on('message', async (ctx, next) => {
   const msg = ctx.message;
-  if (msg.chat.type !== 'private') return next();
+  if (msg.chat.type !== 'private') return next();  // not a DM — let claim handler take it
+  if (!isAdmin(ctx.from?.id)) return next();        // not admin — ignore
 
   const fwdChatId = msg.forward_from_chat?.id;
   const isFromChannel = fwdChatId &&
