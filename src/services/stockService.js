@@ -91,3 +91,30 @@ export async function attemptClaim({ telegramUser, product }) {
     if (lockAcquired) await releaseLock(productId);
   }
 }
+
+const RESTORE_LOCK_PREFIX = 'stock:restore:product:';
+
+export async function restoreClaimedUnit(productId) {
+  const key = RESTORE_LOCK_PREFIX + productId;
+  const locked = (await redis.set(key, '1', 'NX', 'PX', LOCK_TTL_MS)) === 'OK';
+  if (!locked) throw new Error(`Could not acquire restore lock for product ${productId}`);
+
+  try {
+    const { rows } = await query(
+      `UPDATE products
+       SET quantity_remaining = LEAST(quantity_remaining + 1, quantity_total),
+           status = CASE
+             WHEN status = 'sold_out' THEN 'active'
+             ELSE status
+           END,
+           updated_at = NOW()
+       WHERE id = $1
+         AND quantity_remaining < quantity_total
+       RETURNING *`,
+      [productId]
+    );
+    return rows[0] || null;
+  } finally {
+    await redis.del(key);
+  }
+}
