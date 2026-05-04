@@ -1,6 +1,7 @@
 // src/scenes/newProductWizard.js
 import { Scenes } from 'telegraf';
 import { ProductModel } from '../models/product.js';
+import { query } from '../../config/database.js';
 
 export const NEW_PRODUCT_WIZARD_ID = 'new-product-wizard';
 
