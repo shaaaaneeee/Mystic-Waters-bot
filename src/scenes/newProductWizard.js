@@ -84,6 +84,12 @@ export const newProductWizard = new Scenes.WizardScene(
 
     const product = await ProductModel.create({ telegramMessageId: messageId, name, price, quantity });
 
+    await query(
+      `INSERT INTO post_registry (telegram_message_id, post_type, ref_id)
+       VALUES ($1, 'product', $2) ON CONFLICT DO NOTHING`,
+      [product.telegram_message_id, product.id]
+    );
+
     await ctx.reply(
       `✅ *Product created!*\n\n` +
       `*${product.name}*\n` +
