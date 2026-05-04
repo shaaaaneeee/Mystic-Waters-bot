@@ -1,43 +1,17 @@
 // src/handlers/adminHandler.js
-/**
- * ADMIN COMMANDS
- * ─────────────────────────────────────────────────────────────────
- * All commands work via DM to the bot (not in the channel).
- * They are protected by the adminOnly middleware.
- *
- * Commands:
- *
- *   /newproduct
- *     Starts a conversation to link a product to a channel post.
- *     Admin provides: post URL or message_id, name, price, quantity.
- *
- *   /stock
- *     Lists all active/sold_out products with remaining stock.
- *
- *   /claims <message_id>
- *     Shows all claimed users for a specific product post.
- *
- *   /invoice <telegram_id>
- *     Sends an invoice to a specific user.
- *
- *   /invoiceall
- *     Sends invoices to ALL users with pending claims.
- *
- *   /pending
- *     Shows summary of all uninvoiced claims.
- */
-
+import { query } from '../../config/database.js';
 import { ProductModel } from '../models/product.js';
 import { InvoiceModel } from '../models/invoice.js';
 import { UserModel } from '../models/user.js';
-import {
-  sendInvoiceToUser,
-  sendAllPendingInvoices,
-} from '../services/invoiceService.js';
+import { AuctionModel } from '../models/auction.js';
+import { AuctionBidModel } from '../models/auctionBid.js';
+import { GiveawayModel } from '../models/giveaway.js';
+import { GiveawayService } from '../modules/giveaway/giveawayService.js';
+import { ScheduledPostModel } from '../models/scheduledPost.js';
+import { generateInvoiceForAdmin, generateAllInvoicesForAdmin } from '../services/invoiceService.js';
+import { restoreClaimedUnit } from '../services/stockService.js';
 
 // ── /newproduct ───────────────────────────────────────────────────
-// Usage: /newproduct <message_id> <price> <quantity> <name...>
-// Example: /newproduct 42 12.50 3 Blue Tang Fish
 export async function handleNewProduct(ctx) {
   const args = ctx.message.text.split(' ').slice(1);
 
@@ -59,7 +33,6 @@ export async function handleNewProduct(ctx) {
     return ctx.reply('❌ Invalid arguments. Check the format and try again.');
   }
 
-  // Check for duplicate
   const existing = await ProductModel.findByMessageId(messageId);
   if (existing) {
     return ctx.reply(`⚠️ Post #${messageId} is already registered as: *${existing.name}*`, {
@@ -67,12 +40,13 @@ export async function handleNewProduct(ctx) {
     });
   }
 
-  const product = await ProductModel.create({
-    telegramMessageId: messageId,
-    name,
-    price,
-    quantity,
-  });
+  const product = await ProductModel.create({ telegramMessageId: messageId, name, price, quantity });
+
+  await query(
+    `INSERT INTO post_registry (telegram_message_id, post_type, ref_id)
+     VALUES ($1, 'product', $2) ON CONFLICT DO NOTHING`,
+    [messageId, product.id]
+  );
 
   return ctx.reply(
     `✅ Product registered!\n\n` +
@@ -87,10 +61,7 @@ export async function handleNewProduct(ctx) {
 // ── /stock ────────────────────────────────────────────────────────
 export async function handleStock(ctx) {
   const products = await ProductModel.listActive();
-
-  if (products.length === 0) {
-    return ctx.reply('No active listings.');
-  }
+  if (products.length === 0) return ctx.reply('No active listings.');
 
   const lines = products.map(p => {
     const statusEmoji = p.status === 'sold_out' ? '🔴' : '🟢';
@@ -102,37 +73,27 @@ export async function handleStock(ctx) {
     );
   });
 
-  return ctx.reply(
-    `📦 *Stock Overview*\n\n${lines.join('\n\n')}`,
-    { parse_mode: 'Markdown' }
-  );
+  return ctx.reply(`📦 *Stock Overview*\n\n${lines.join('\n\n')}`, { parse_mode: 'Markdown' });
 }
 
 // ── /claims <message_id> ─────────────────────────────────────────
 export async function handleViewClaims(ctx) {
-  const args = ctx.message.text.split(' ');
+  const args     = ctx.message.text.split(' ');
   const rawMsgId = args[1];
+  if (!rawMsgId) return ctx.reply('Usage: /claims <message\\_id>', { parse_mode: 'Markdown' });
 
-  if (!rawMsgId) {
-    return ctx.reply('Usage: /claims <message\\_id>', { parse_mode: 'Markdown' });
-  }
-
-  const messageId = parseInt(rawMsgId, 10);
-  const product = await ProductModel.findByMessageId(messageId);
-
-  if (!product) {
-    return ctx.reply(`❌ No product found for post #${messageId}`);
-  }
+  const messageId    = parseInt(rawMsgId, 10);
+  const product      = await ProductModel.findByMessageId(messageId);
+  if (!product) return ctx.reply(`❌ No product found for post #${messageId}`);
 
   const claimedUsers = await ProductModel.getClaimedUsers(product.id);
-
   if (claimedUsers.length === 0) {
     return ctx.reply(`No claims yet for *${product.name}*`, { parse_mode: 'Markdown' });
   }
 
   const lines = claimedUsers.map((u, i) => {
     const handle = u.username ? `@${u.username}` : u.first_name || `ID:${u.telegram_id}`;
-    const when = new Date(u.claimed_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
+    const when   = new Date(u.claimed_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
     return `  ${i + 1}. ${handle} — ${when}`;
   });
 
@@ -144,7 +105,7 @@ export async function handleViewClaims(ctx) {
 
 // ── /invoice <@username | telegram_id> ───────────────────────────
 export async function handleSendInvoice(ctx) {
-  const args = ctx.message.text.split(' ');
+  const args  = ctx.message.text.split(' ');
   const rawId = args[1];
 
   if (!rawId) {
@@ -171,46 +132,188 @@ export async function handleSendInvoice(ctx) {
   }
 
   try {
-    const invoice = await sendInvoiceToUser(ctx.telegram, telegramId);
-
-    if (!invoice) {
-      return ctx.reply(`ℹ️ No pending claims for ${displayHandle}.`);
-    }
-
-    return ctx.reply(
-      `✅ Invoice #${invoice.id} sent to ${displayHandle}\n` +
-      `Total: $${parseFloat(invoice.total_amount).toFixed(2)}`
-    );
+    const invoice = await generateInvoiceForAdmin(ctx.telegram, ctx.from.id, telegramId);
+    if (!invoice) return ctx.reply(`ℹ️ No pending claims for ${displayHandle}.`);
+    return ctx.reply(`✅ Invoice #${invoice.id} generated above for ${displayHandle}.`);
   } catch (err) {
-    console.error('[adminHandler] sendInvoice error:', err.message);
+    console.error('[adminHandler] invoice error:', err.message);
     const reason = err.message?.includes("bot can't initiate")
-      ? `${displayHandle} must send /start to the bot in DM first`
+      ? `${displayHandle} must send /start to the bot first`
       : err.message;
-    return ctx.reply(`❌ Failed to send invoice: ${reason}`);
+    return ctx.reply(`❌ Failed to generate invoice: ${reason}`);
   }
 }
 
 // ── /invoiceall ───────────────────────────────────────────────────
 export async function handleSendAllInvoices(ctx) {
-  await ctx.reply('📤 Sending invoices to all pending users...');
-
-  const results = await sendAllPendingInvoices(ctx.telegram);
-
+  await ctx.reply('📤 Generating invoices for all pending users...');
+  const results   = await generateAllInvoicesForAdmin(ctx.telegram, ctx.from.id);
   const succeeded = results.filter(r => r.success).length;
   const failed    = results.filter(r => !r.success);
 
-  let summary = `✅ Sent ${succeeded} invoice(s).`;
+  let summary = `✅ Generated ${succeeded} invoice(s).`;
   if (failed.length > 0) {
-    const failLines = failed.map(f => {
-      const reason = f.error?.includes("bot can't initiate")
-        ? 'must send /start to the bot in DM first'
-        : f.error;
-      return `  • ${f.handle} — ${reason}`;
-    });
+    const failLines = failed.map(f => `  • ${f.handle} — ${f.error}`);
     summary += `\n⚠️ Failed:\n${failLines.join('\n')}`;
   }
-
   return ctx.reply(summary);
+}
+
+// ── /pending ──────────────────────────────────────────────────────
+export async function handlePending(ctx) {
+  const rows = await InvoiceModel.getPendingSummary();
+  if (rows.length === 0) return ctx.reply('✅ No pending uninvoiced claims.');
+
+  const lines = rows.map(r => {
+    const handle = r.username ? `@${r.username}` : r.first_name || `ID:${r.telegram_id}`;
+    return `  • ${handle} — ${r.claim_count} item(s) — $${r.total}`;
+  });
+
+  return ctx.reply(`💰 *Pending Invoices*\n\n${lines.join('\n')}`, { parse_mode: 'Markdown' });
+}
+
+// ── /invoicehistory ───────────────────────────────────────────────
+export async function handleInvoiceHistory(ctx) {
+  const rows = await InvoiceModel.listHistory();
+  if (rows.length === 0) return ctx.reply('No invoice history yet.');
+
+  const lines = rows.map(r => {
+    const handle = r.username ? `@${r.username}` : (r.first_name || `ID:${r.telegram_id}`);
+    const emoji  = r.status === 'paid' ? '✅' : '❌';
+    const date   = new Date(r.updated_at).toLocaleDateString('en-SG', { timeZone: 'Asia/Singapore' });
+    return `${emoji} #${r.id} — ${handle} — $${parseFloat(r.total_amount).toFixed(2)} — ${date}`;
+  });
+
+  return ctx.reply(`📋 *Invoice History* (last 50)\n\n${lines.join('\n')}`, { parse_mode: 'Markdown' });
+}
+
+// ── /confirmpaid <invoice_id> ─────────────────────────────────────
+export async function handleConfirmPaid(ctx) {
+  const args  = ctx.message.text.split(' ');
+  const rawId = args[1];
+  if (!rawId) return ctx.reply('Usage: `/confirmpaid <invoice_id>`', { parse_mode: 'Markdown' });
+
+  const invoiceId = parseInt(rawId, 10);
+  if (isNaN(invoiceId)) return ctx.reply('❌ Invalid invoice ID.');
+
+  return confirmPaidById(ctx, invoiceId);
+}
+
+export async function confirmPaidById(ctx, invoiceId) {
+  const invoice = await InvoiceModel.confirmPaid({
+    invoiceId,
+    confirmedByTelegramId: ctx.from.id,
+  });
+
+  if (!invoice) {
+    return ctx.reply(`❌ Invoice #${invoiceId} not found, already paid, or cancelled.`);
+  }
+
+  try {
+    const activePool = await GiveawayModel.getActivePool();
+    if (activePool) {
+      const claims = await InvoiceModel.getClaimsForInvoice(invoiceId);
+      await GiveawayService.addEntries({
+        pool: activePool,
+        invoiceId,
+        claims,
+        userId: invoice.user_id,
+      });
+    }
+  } catch (err) {
+    console.error('[adminHandler] giveaway entry error:', err.message);
+  }
+
+  const ts = new Date().toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
+  return ctx.reply(
+    `✅ Invoice #${invoiceId} marked as *paid*.\nConfirmed at ${ts} SGT.`,
+    { parse_mode: 'Markdown' }
+  );
+}
+
+// ── /deleteinvoice <invoice_id> ────────────────────────────────────
+const PENDING_CANCEL = new Map(); // key: adminTelegramId string → { invoiceId, ts }
+
+export async function handleDeleteInvoice(ctx) {
+  const args  = ctx.message.text.split(' ');
+  const rawId = args[1];
+  if (!rawId) return ctx.reply('Usage: `/deleteinvoice <invoice_id>`', { parse_mode: 'Markdown' });
+
+  const invoiceId = parseInt(rawId, 10);
+  if (isNaN(invoiceId)) return ctx.reply('❌ Invalid invoice ID.');
+
+  const invoice = await InvoiceModel.findById(invoiceId);
+  if (!invoice) return ctx.reply(`❌ Invoice #${invoiceId} not found.`);
+  if (invoice.status !== 'active') {
+    return ctx.reply(
+      `❌ Invoice #${invoiceId} is already *${invoice.status}*. Only active invoices can be cancelled.`,
+      { parse_mode: 'Markdown' }
+    );
+  }
+
+  const handle = invoice.username
+    ? `@${invoice.username}`
+    : (invoice.first_name || `ID:${invoice.telegram_id}`);
+
+  PENDING_CANCEL.set(`${ctx.from.id}`, { invoiceId, ts: Date.now() });
+
+  return ctx.reply(
+    `⚠️ Cancel invoice #${invoiceId} for ${handle} ($${parseFloat(invoice.total_amount).toFixed(2)})?\n\n` +
+    `Reply \`CONFIRM\` to proceed, or ignore to abort.\n` +
+    `_Optional: \`CONFIRM reason text\`_`,
+    { parse_mode: 'Markdown' }
+  );
+}
+
+export async function handleDeleteInvoiceConfirm(ctx) {
+  const text = ctx.message?.text?.trim() || '';
+  if (!text.toUpperCase().startsWith('CONFIRM')) return;
+
+  const key     = `${ctx.from.id}`;
+  const pending = PENDING_CANCEL.get(key);
+  if (!pending || Date.now() - pending.ts > 120_000) {
+    PENDING_CANCEL.delete(key);
+    return;
+  }
+
+  const { invoiceId } = pending;
+  const reason = text.length > 7 ? text.slice(8).trim() : null;
+  PENDING_CANCEL.delete(key);
+
+  return cancelInvoiceById(ctx, invoiceId, reason);
+}
+
+export async function cancelInvoiceById(ctx, invoiceId, reason) {
+  const claims    = await InvoiceModel.getClaimsForInvoice(invoiceId);
+  const cancelled = await InvoiceModel.cancel({
+    invoiceId,
+    cancelledByTelegramId: ctx.from.id,
+    reason,
+  });
+
+  if (!cancelled) {
+    return ctx.reply(`❌ Invoice #${invoiceId} could not be cancelled (not active or not found).`);
+  }
+
+  const restoreResults = await Promise.allSettled(
+    claims.map(async (c) => {
+      const { rows } = await query(
+        `SELECT p.id FROM products p
+         JOIN claims cl ON cl.product_id = p.id
+         WHERE cl.id = $1`,
+        [c.claim_id]
+      );
+      const productId = rows[0]?.id;
+      if (productId) return restoreClaimedUnit(productId);
+    })
+  );
+
+  const failedRestores = restoreResults.filter(r => r.status === 'rejected').length;
+  let msg = `✅ Invoice #${invoiceId} cancelled. ${claims.length} claim(s) returned to queue.`;
+  if (failedRestores > 0) msg += `\n⚠️ ${failedRestores} stock restore(s) failed — check manually.`;
+  if (reason) msg += `\n_Reason: ${reason}_`;
+
+  return ctx.reply(msg, { parse_mode: 'Markdown' });
 }
 
 // ── /start (admin variant) ────────────────────────────────────────
@@ -218,16 +321,15 @@ export function handleAdminStart(ctx) {
   const name = ctx.from?.first_name || 'Admin';
   return ctx.reply(
     `🐠 *Welcome, ${name}!*\n\n` +
-    `You're managing *Mystic Waters Bot*. Here's how it works:\n\n` +
+    `You're managing *Mystic Waters Bot*.\n\n` +
     `*Workflow*\n` +
-    `1. Post a product to your Telegram channel\n` +
-    `2. Forward the post to this DM — bot guides you step by step\n` +
-    `3. Buyers comment \`claim\` in the linked discussion group\n` +
-    `4. The bot tracks stock atomically — no overselling\n` +
-    `5. Invoice buyers when ready: \`/invoiceall\`\n\n` +
+    `1. Post to your channel\n` +
+    `2. Forward the post here → choose Product or Auction\n` +
+    `3. Buyers register via bot link, then comment in the group\n` +
+    `4. Generate invoices: \`/invoice @user\` or \`/invoiceall\`\n` +
+    `5. Confirm payment: \`/confirmpaid <id>\`\n\n` +
     `*Quick Status*\n` +
-    `/stock — Current inventory\n` +
-    `/pending — Users awaiting invoices\n\n` +
+    `/stock · /pending\n\n` +
     `Type /help for the full command reference.`,
     { parse_mode: 'Markdown' }
   );
@@ -238,46 +340,212 @@ export function handleHelp(ctx) {
   return ctx.reply(
     `📋 *Admin Command Reference*\n\n` +
 
-    `*📦 Adding Products*\n` +
-    `Forward a channel post to this DM\n` +
-    `  → Bot guides you through name, price & quantity\n` +
-    `\`/newproduct <msg\\_id> <price> <qty> <name>\`\n` +
-    `  → Manual shortcut (skips the wizard)\n` +
-    `  e.g. \`/newproduct 42 12.50 3 Blue Tang\`\n\n` +
+    `*📦 Products*\n` +
+    `Forward a channel post → choose Product or Auction\n` +
+    `\`/newproduct <msg\\_id> <price> <qty> <name>\` — manual\n\n` +
 
-    `*📊 Viewing Status*\n` +
-    `/stock — All products with stock levels\n` +
-    `/claims <msg\\_id> — Who claimed a specific product\n` +
-    `/pending — All users with uninvoiced claims\n\n` +
+    `*🔨 Auctions*\n` +
+    `/createauction — wizard\n` +
+    `/auctionbids <post\\_id> — view all bids\n` +
+    `/endauction <post\\_id> — force-end early\n` +
+    `/cancelauction <post\\_id> — cancel\n\n` +
 
-    `*🧾 Invoicing*\n` +
-    `/invoice @username — Send invoice to one user\n` +
-    `/invoice <telegram\\_id> — Send by Telegram ID\n` +
-    `/invoiceall — Send invoices to all pending users\n\n` +
+    `*📊 Status*\n` +
+    `/stock — products & stock levels\n` +
+    `/pending — uninvoiced claims\n` +
+    `/claims <post\\_id> — who claimed a product\n\n` +
+
+    `*🧾 Invoices*\n` +
+    `/invoice @username — generate invoice (shown here)\n` +
+    `/invoiceall — generate for all pending users\n` +
+    `/invoicehistory — paid & cancelled\n` +
+    `/confirmpaid <id> — mark as paid\n` +
+    `/deleteinvoice <id> — cancel + restore stock\n\n` +
+
+    `*🎁 Giveaway*\n` +
+    `/newgiveaway — start pool\n` +
+    `/drawgiveaway — draw winner\n` +
+    `/giveawaystats — pool stats\n` +
+    `/cleargiveaway — cancel pool\n\n` +
+
+    `*📅 Scheduling*\n` +
+    `/schedulepost — schedule a channel post\n` +
+    `/listscheduled — pending posts\n` +
+    `/deletescheduled <id> — cancel scheduled post\n\n` +
 
     `*⚙️ Other*\n` +
-    `/start — Show the welcome & workflow guide\n` +
-    `/cancel — Exit the product wizard mid-setup\n` +
-    `/help — Show this reference`,
+    `/start — welcome & workflow\n` +
+    `/cancel — exit any wizard\n` +
+    `/help — this reference`,
     { parse_mode: 'Markdown' }
   );
 }
 
-// ── /pending ──────────────────────────────────────────────────────
-export async function handlePending(ctx) {
-  const rows = await InvoiceModel.getPendingSummary();
+// ── Auction commands ──────────────────────────────────────────────
+export async function handleAuctionBids(ctx) {
+  const rawMsgId = ctx.message.text.split(' ')[1];
+  if (!rawMsgId) return ctx.reply('Usage: `/auctionbids <post_id>`', { parse_mode: 'Markdown' });
 
-  if (rows.length === 0) {
-    return ctx.reply('✅ No pending uninvoiced claims.');
+  const auction = await AuctionModel.findByMessageId(parseInt(rawMsgId, 10));
+  if (!auction) return ctx.reply(`❌ No auction found for post #${rawMsgId}.`);
+
+  const bids = await AuctionBidModel.listForAuction(auction.id);
+  if (bids.length === 0) {
+    return ctx.reply(`No bids yet for *${auction.name}*.`, { parse_mode: 'Markdown' });
   }
 
-  const lines = rows.map(r => {
-    const handle = r.username ? `@${r.username}` : r.first_name || `ID:${r.telegram_id}`;
-    return `  • ${handle} — ${r.claim_count} item(s) — $${r.total}`;
+  const lines = bids.map((b, i) => {
+    const handle = b.username ? `@${b.username}` : (b.first_name || `ID:${b.telegram_id}`);
+    return `  ${i + 1}. ${handle} — $${parseFloat(b.amount).toFixed(2)}${b.is_winning ? ' 👑' : ''}`;
   });
 
   return ctx.reply(
-    `💰 *Pending Invoices*\n\n${lines.join('\n')}`,
+    `🔨 *Bids for ${auction.name}*\n` +
+    `Current: $${auction.current_bid ? parseFloat(auction.current_bid).toFixed(2) : '—'}\n\n` +
+    lines.join('\n'),
     { parse_mode: 'Markdown' }
   );
+}
+
+export async function handleEndAuction(ctx) {
+  const rawMsgId = ctx.message.text.split(' ')[1];
+  if (!rawMsgId) return ctx.reply('Usage: `/endauction <post_id>`', { parse_mode: 'Markdown' });
+
+  const auction = await AuctionModel.findByMessageId(parseInt(rawMsgId, 10));
+  if (!auction) return ctx.reply(`❌ No auction found for post #${rawMsgId}.`);
+  if (auction.status !== 'active') return ctx.reply(`❌ Auction is not active (status: ${auction.status}).`);
+
+  await AuctionModel.forceEnd(auction.id);
+  return ctx.reply(
+    `✅ Auction *${auction.name}* force-ended. Will close within 60s.`,
+    { parse_mode: 'Markdown' }
+  );
+}
+
+export async function handleCancelAuction(ctx) {
+  const rawMsgId = ctx.message.text.split(' ')[1];
+  if (!rawMsgId) return ctx.reply('Usage: `/cancelauction <post_id>`', { parse_mode: 'Markdown' });
+
+  const auction   = await AuctionModel.findByMessageId(parseInt(rawMsgId, 10));
+  if (!auction) return ctx.reply(`❌ No auction found for post #${rawMsgId}.`);
+
+  const cancelled = await AuctionModel.cancel(auction.id);
+  if (!cancelled) return ctx.reply(`❌ Could not cancel (status: ${auction.status}).`);
+
+  return ctx.reply(`✅ Auction *${auction.name}* cancelled.`, { parse_mode: 'Markdown' });
+}
+
+// ── Giveaway commands ─────────────────────────────────────────────
+export async function handleDrawGiveaway(ctx) {
+  const pool = await GiveawayModel.getActivePool();
+  if (!pool) return ctx.reply('❌ No active giveaway pool. Start one with /newgiveaway.');
+
+  const stats = await GiveawayModel.getPoolStats(pool.id);
+  if (stats.total_entries === 0) {
+    return ctx.reply(`❌ Pool *${pool.title}* has no entries yet.`, { parse_mode: 'Markdown' });
+  }
+
+  const winnerEntry = await GiveawayModel.drawWinner({ poolId: pool.id, drawnBy: ctx.from.id });
+  if (!winnerEntry) return ctx.reply('❌ Could not draw winner.');
+
+  const { rows } = await query('SELECT * FROM users WHERE id = $1', [winnerEntry.user_id]);
+  const w      = rows[0];
+  const handle = w ? (w.username ? `@${w.username}` : (w.first_name || `ID:${w.telegram_id}`)) : 'Unknown';
+
+  return ctx.reply(
+    `🎉 *Winner Drawn!*\n\n` +
+    `*${pool.title}*\n` +
+    `Prize: ${pool.prize_description || '_not specified_'}\n\n` +
+    `Winner: *${handle}*\n` +
+    `Drawn from ${stats.total_entries} entries · ${stats.unique_users} participants.\n\n` +
+    `Pool closed. Start a new one with /newgiveaway.`,
+    { parse_mode: 'Markdown' }
+  );
+}
+
+export async function handleGiveawayStats(ctx) {
+  const pool = await GiveawayModel.getActivePool();
+  if (!pool) return ctx.reply('❌ No active giveaway pool.');
+
+  const stats = await GiveawayModel.getPoolStats(pool.id);
+  const top   = await GiveawayModel.getTopContributors(pool.id);
+
+  const topLines = top.map((u, i) => {
+    const handle = u.username ? `@${u.username}` : (u.first_name || `ID:${u.telegram_id}`);
+    return `  ${i + 1}. ${handle} — ${u.entries} entr${u.entries === 1 ? 'y' : 'ies'}`;
+  });
+
+  return ctx.reply(
+    `🎁 *${pool.title}*\n` +
+    (pool.prize_description ? `Prize: ${pool.prize_description}\n` : '') +
+    `\nTotal entries: *${stats.total_entries}*\n` +
+    `Unique participants: *${stats.unique_users}*\n\n` +
+    (topLines.length ? `*Top Contributors:*\n${topLines.join('\n')}` : '_No entries yet._'),
+    { parse_mode: 'Markdown' }
+  );
+}
+
+const PENDING_CLEAR = new Map(); // key: adminTelegramId string → ts
+
+export async function handleClearGiveaway(ctx) {
+  const pool = await GiveawayModel.getActivePool();
+  if (!pool) return ctx.reply('❌ No active giveaway pool to clear.');
+
+  PENDING_CLEAR.set(`${ctx.from.id}`, Date.now());
+
+  return ctx.reply(
+    `⚠️ Cancel giveaway pool *${pool.title}* without drawing a winner?\n\nReply \`CONFIRM\` to proceed.`,
+    { parse_mode: 'Markdown' }
+  );
+}
+
+export async function handleClearGiveawayConfirm(ctx) {
+  const text = ctx.message?.text?.trim() || '';
+  if (text !== 'CONFIRM') return;
+
+  const key = `${ctx.from.id}`;
+  const ts  = PENDING_CLEAR.get(key);
+  if (!ts || Date.now() - ts > 120_000) { PENDING_CLEAR.delete(key); return; }
+  PENDING_CLEAR.delete(key);
+
+  const pool = await GiveawayModel.getActivePool();
+  if (!pool) return ctx.reply('❌ No active pool to clear.');
+
+  const cancelled = await GiveawayModel.cancelPool(pool.id);
+  if (!cancelled) return ctx.reply('❌ Could not cancel pool.');
+
+  return ctx.reply(
+    `✅ Giveaway pool *${pool.title}* cancelled. History preserved.`,
+    { parse_mode: 'Markdown' }
+  );
+}
+
+// ── Scheduler commands ────────────────────────────────────────────
+export async function handleListScheduled(ctx) {
+  const posts = await ScheduledPostModel.listPending();
+  if (posts.length === 0) return ctx.reply('No scheduled posts pending.');
+
+  const typeEmoji = { free_form: '📝', product_listing: '📦', auction_listing: '🔨' };
+  const lines = posts.map(p => {
+    const emoji = typeEmoji[p.type] || '📅';
+    const label = p.product_name || p.auction_name
+      || (p.content ? p.content.slice(0, 30) + (p.content.length > 30 ? '…' : '') : '—');
+    const when  = new Date(p.scheduled_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
+    return `${emoji} #${p.id} — ${label} — ${when} SGT`;
+  });
+
+  return ctx.reply(`📅 *Scheduled Posts*\n\n${lines.join('\n')}`, { parse_mode: 'Markdown' });
+}
+
+export async function handleDeleteScheduled(ctx) {
+  const id = parseInt(ctx.message.text.split(' ')[1], 10);
+  if (isNaN(id)) return ctx.reply('Usage: `/deletescheduled <id>`', { parse_mode: 'Markdown' });
+
+  const { cancelScheduledPost } = await import('../modules/scheduler/schedulerService.js');
+  cancelScheduledPost(id);
+
+  const cancelled = await ScheduledPostModel.cancel(id, 'Cancelled by admin');
+  if (!cancelled) return ctx.reply(`❌ Post #${id} not found or already sent/cancelled.`);
+
+  return ctx.reply(`✅ Scheduled post #${id} cancelled.`);
 }
