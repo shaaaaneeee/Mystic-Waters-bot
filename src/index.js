@@ -6,6 +6,7 @@ import { query } from '../config/database.js';
 
 import { commentOnly, adminOnly, isAdmin, registrationRequired } from './middleware/guards.js';
 import { handleClaim } from './handlers/claimHandler.js';
+import { ProductModel } from './models/product.js';
 import {
   handleNewProduct, handleStock, handleViewClaims,
   handleSendInvoice, handleSendAllInvoices, handlePending,
