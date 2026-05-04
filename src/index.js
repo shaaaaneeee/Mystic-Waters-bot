@@ -103,6 +103,19 @@ bot.on('callback_query', async (ctx) => {
     const messageId = parseInt(data.split(':')[2], 10);
     return ctx.scene.enter(NEW_AUCTION_WIZARD_ID, { messageId });
   }
+
+  if (data.startsWith('product:cancel:')) {
+    if (!isAdmin(ctx.from?.id)) return;
+    const channelPostId = parseInt(data.split(':')[2], 10);
+    const product = await ProductModel.findByMessageId(channelPostId);
+    if (!product) return ctx.editMessageText('⚠️ Product not found.');
+    if (product.status === 'cancelled') return ctx.editMessageText('⚠️ Already cancelled.');
+    await ProductModel.cancel(product.id);
+    return ctx.editMessageText(
+      `🗑️ *${product.name}* (Post #${channelPostId}) has been marked as cancelled.\n\nRemember to delete the post from the channel manually.`,
+      { parse_mode: 'Markdown' }
+    );
+  }
 });
 
 // ── Contact sharing (registration) ───────────────────────────────
