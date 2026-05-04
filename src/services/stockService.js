@@ -1,6 +1,6 @@
 // src/services/stockService.js
 import redis from '../../config/redis.js';
-import { getClient } from '../../config/database.js';
+import { getClient, query } from '../../config/database.js';
 import { ProductModel } from '../models/product.js';
 import { UserModel } from '../models/user.js';
 import { ClaimModel } from '../models/claim.js';
