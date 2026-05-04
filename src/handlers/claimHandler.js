@@ -55,7 +55,7 @@ export async function handleClaim(ctx) {
   if (result.success) {
     const { product: updatedProduct } = result;
     const remaining = updatedProduct.quantity_remaining;
-    return ctx.reply(
+    await ctx.reply(
       [
         `✅ Claimed! *${product.name}* is yours, ${formatName(ctx.from)}.`,
         ``,
@@ -66,6 +66,23 @@ export async function handleClaim(ctx) {
       ].join('\n'),
       { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id }
     );
+
+    if (remaining === 0) {
+      const adminId = parseInt((process.env.ADMIN_IDS || '').split(',')[0], 10);
+      if (adminId) {
+        await ctx.telegram.sendMessage(
+          adminId,
+          `🔴 *${product.name}* is now sold out!\n\nPost ID: #${channelPostId}\n\nYou may want to remove this listing from the channel.`,
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([[
+              Markup.button.callback('🗑️ Remove Listing', `product:cancel:${channelPostId}`),
+            ]]),
+          }
+        );
+      }
+    }
+    return;
   }
 
   switch (result.reason) {
