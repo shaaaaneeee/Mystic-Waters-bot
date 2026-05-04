@@ -65,4 +65,20 @@ export const ProductModel = {
     );
     return rows;
   },
+
+  async cancel(productId) {
+    const { rows } = await query(
+      `UPDATE products SET status = 'cancelled' WHERE id = $1 RETURNING *`,
+      [productId]
+    );
+    return rows[0] || null;
+  },
+
+  async findById(productId) {
+    const { rows } = await query(
+      'SELECT * FROM products WHERE id = $1',
+      [productId]
+    );
+    return rows[0] || null;
+  },
 };
