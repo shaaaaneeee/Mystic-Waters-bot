@@ -3,6 +3,7 @@ import { query } from '../../config/database.js';
 import { ProductModel } from '../models/product.js';
 import { attemptClaim } from '../services/stockService.js';
 import { handleBid } from './auctionHandler.js';
+import { Markup } from 'telegraf';
 
 const MAX_RETRIES    = 3;
 const RETRY_DELAY_MS = 400;
