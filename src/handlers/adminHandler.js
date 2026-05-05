@@ -78,9 +78,8 @@ export async function handleStock(ctx) {
 }
 
 // ── /claims <message_id> ─────────────────────────────────────────
-export async function handleViewClaims(ctx) {
-  const args     = ctx.message.text.split(' ');
-  const rawMsgId = args[1];
+export async function handleViewClaims(ctx, overrideMsgId = null) {
+  const rawMsgId = overrideMsgId !== null ? String(overrideMsgId) : ctx.message?.text?.split(' ')[1];
   if (!rawMsgId) return ctx.reply('Usage: /claims <message\\_id>', { parse_mode: 'Markdown' });
 
   const messageId    = parseInt(rawMsgId, 10);
