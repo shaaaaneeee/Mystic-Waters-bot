@@ -348,7 +348,7 @@ export function handleHelp(ctx) {
     `/invoiceall — generate for all pending users\n` +
     `/invoicehistory — paid & cancelled\n` +
     `/confirmpaid <id> — mark as paid\n` +
-    `/deleteinvoice <id> — cancel + restore stock\n\n` +
+    `/deleteinvoice <id> — cancel invoice\n\n` +
 
     `*🎁 Giveaway*\n` +
     `/newgiveaway — start pool\n` +
