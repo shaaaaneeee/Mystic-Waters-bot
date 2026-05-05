@@ -276,6 +276,8 @@ scheduleWizard.command('cancel', async (ctx) => {
   return ctx.scene.leave();
 });
 
-scheduleWizard.hears(/^\/\w+/, (ctx) =>
-  ctx.reply('⚠️ Use /cancel to exit the schedule wizard first.')
-);
+// Any other command: silently leave the wizard so the global handler can process it
+scheduleWizard.hears(/^\/\w+/, async (ctx, next) => {
+  await ctx.scene.leave();
+  return next();
+});
