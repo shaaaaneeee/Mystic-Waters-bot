@@ -47,6 +47,7 @@ bot.use(stage.middleware());
 bot.command('cancel',          adminOnly, (ctx) => ctx.reply('Nothing to cancel.'));
 bot.command('newproduct',      adminOnly, handleNewProduct);
 bot.command('stock',           adminOnly, handleStock);
+bot.command('auctions',        adminOnly, handleAuctions);
 bot.command('claims',          adminOnly, handleViewClaims);
 bot.command('invoice',         adminOnly, handleSendInvoice);
 bot.command('invoiceall',      adminOnly, handleSendAllInvoices);
