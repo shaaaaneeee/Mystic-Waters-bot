@@ -397,8 +397,8 @@ export async function handleAuctionBids(ctx, overrideMsgId = null) {
   );
 }
 
-export async function handleEndAuction(ctx) {
-  const rawMsgId = ctx.message.text.split(' ')[1];
+export async function handleEndAuction(ctx, overrideMsgId = null) {
+  const rawMsgId = overrideMsgId !== null ? String(overrideMsgId) : ctx.message?.text?.split(' ')[1];
   if (!rawMsgId) return ctx.reply('Usage: `/endauction <post_id>`', { parse_mode: 'Markdown' });
 
   const auction = await AuctionModel.findByMessageId(parseInt(rawMsgId, 10));
