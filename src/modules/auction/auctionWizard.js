@@ -18,13 +18,38 @@ function parseSGTDateTime(str) {
 export const newAuctionWizard = new Scenes.WizardScene(
   NEW_AUCTION_WIZARD_ID,
 
-  // Step 0: entered with { messageId } in wizard state — ask name
+  // Step 0: entered from forward callback (messageId in state) OR from /createauction (no messageId)
   async (ctx) => {
+    if (ctx.wizard.state.messageId) {
+      // Forward flow — messageId already provided, go straight to name
+      await ctx.reply(
+        '🔨 *New Auction Setup*\n\nWhat is the item name?\n\n_/cancel at any time._',
+        { parse_mode: 'Markdown' }
+      );
+      return ctx.wizard.next();
+    }
+
+    if (ctx.wizard.state._waitingForMsgId) {
+      // Second call — user is providing the message ID
+      const id = parseInt(ctx.message?.text?.trim() || '', 10);
+      if (isNaN(id) || id <= 0) return ctx.reply('❌ Invalid ID. Enter a number:');
+      ctx.wizard.state.messageId = id;
+      await ctx.reply(
+        '🔨 *New Auction Setup*\n\nWhat is the item name?\n\n_/cancel at any time._',
+        { parse_mode: 'Markdown' }
+      );
+      return ctx.wizard.next();
+    }
+
+    // First call from /createauction — ask for the channel post message ID
+    ctx.wizard.state._waitingForMsgId = true;
     await ctx.reply(
-      '🔨 *New Auction Setup*\n\nWhat is the item name?\n\n_/cancel at any time._',
+      '🔨 *New Auction Setup*\n\n' +
+      'Enter the *channel post message ID* for this auction.\n\n' +
+      '_Tip: Forward the channel post to this chat and select 🔨 Auction instead, and the ID is set automatically._\n\n' +
+      '_/cancel at any time._',
       { parse_mode: 'Markdown' }
     );
-    return ctx.wizard.next();
   },
 
   // Step 1: name → ask description
