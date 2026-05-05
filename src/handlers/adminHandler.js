@@ -224,10 +224,11 @@ export async function confirmPaidById(ctx, invoiceId) {
   }
 
   const ts = new Date().toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
-  return ctx.reply(
-    `✅ Invoice #${invoiceId} marked as *paid*.\nConfirmed at ${ts} SGT.`,
-    { parse_mode: 'Markdown' }
-  );
+  const msg = `✅ Invoice #${invoiceId} marked as *paid*.\nConfirmed at ${ts} SGT.`;
+  const opts = { parse_mode: 'Markdown' };
+  return ctx.callbackQuery
+    ? ctx.editMessageText(msg, opts)
+    : ctx.reply(msg, opts);
 }
 
 // ── /deleteinvoice <invoice_id> ────────────────────────────────────
