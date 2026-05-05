@@ -388,24 +388,22 @@ export function handleHelp(ctx) {
 
     `*📦 Products*\n` +
     `Forward a channel post → choose Product or Auction\n` +
-    `\`/newproduct <msg\\_id> <price> <qty> <name>\` — manual\n\n` +
+    `\`/newproduct <msg\\_id> <price> <qty> <name>\` — manual\n` +
+    `/stock — paginated list with Claims + Cancel buttons\n\n` +
 
     `*🔨 Auctions*\n` +
-    `/createauction — wizard\n` +
-    `/auctionbids <post\\_id> — view all bids\n` +
-    `/endauction <post\\_id> — force-end early\n` +
-    `/cancelauction <post\\_id> — cancel\n\n` +
+    `/auctions — paginated list with Bids + End + Cancel buttons\n` +
+    `/createauction — wizard\n\n` +
 
     `*📊 Status*\n` +
-    `/stock — products & stock levels\n` +
-    `/pending — uninvoiced claims\n` +
-    `/claims <post\\_id> — who claimed a product\n\n` +
+    `/pending — uninvoiced claims with Send Invoice buttons\n` +
+    `/claims <post\\_id> — who claimed a product (direct)\n\n` +
 
     `*🧾 Invoices*\n` +
-    `/invoice @username — generate invoice (shown here)\n` +
+    `/invoice @username — generate invoice for one user\n` +
     `/invoiceall — generate for all pending users\n` +
     `/invoicehistory — paid & cancelled\n` +
-    `/confirmpaid <id> — mark as paid\n` +
+    `/confirmpaid <id> — mark as paid (also: button on invoice)\n` +
     `/deleteinvoice <id> — cancel invoice\n\n` +
 
     `*🎁 Giveaway*\n` +
@@ -416,9 +414,7 @@ export function handleHelp(ctx) {
 
     `*📅 Scheduling*\n` +
     `/schedulepost — schedule a channel post\n` +
-    `/listscheduled — pending posts\n` +
-    `/editscheduled <id> — reschedule a pending post\n` +
-    `/deletescheduled <id> — cancel scheduled post\n\n` +
+    `/listscheduled — pending posts with Edit + Delete buttons\n\n` +
 
     `*⚙️ Other*\n` +
     `/start — welcome & workflow\n` +
