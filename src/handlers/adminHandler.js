@@ -549,3 +549,38 @@ export async function handleDeleteScheduled(ctx) {
 
   return ctx.reply(`✅ Scheduled post #${id} cancelled.`);
 }
+
+export async function handleEditScheduled(ctx) {
+  const id = parseInt(ctx.message.text.split(' ')[1], 10);
+  if (isNaN(id)) return ctx.reply('Usage: `/editscheduled <id>`', { parse_mode: 'Markdown' });
+
+  const post = await ScheduledPostModel.findById(id);
+  if (!post) return ctx.reply(`❌ Scheduled post #${id} not found.`);
+  if (post.status !== 'pending') {
+    return ctx.reply(
+      `❌ Post #${id} is *${post.status}* — only pending posts can be edited.`,
+      { parse_mode: 'Markdown' }
+    );
+  }
+
+  // Cancel the existing post (in-memory timeout + DB status)
+  const { cancelScheduledPost } = await import('../modules/scheduler/schedulerService.js');
+  cancelScheduledPost(id);
+  await ScheduledPostModel.cancel(id, 'Superseded by edit');
+
+  // Build prefill state from existing post so wizard pre-populates
+  const prefill = {
+    type:          post.type,
+    content:       post.content,
+    name:          post.product_name || post.auction_name,
+    price:         post.product_price         ? parseFloat(post.product_price)         : undefined,
+    quantity:      post.product_quantity      ?? undefined,
+    description:   post.product_description  || post.auction_description || null,
+    startingBid:   post.auction_starting_bid  ? parseFloat(post.auction_starting_bid)  : undefined,
+    minIncrement:  post.auction_min_increment ? parseFloat(post.auction_min_increment) : undefined,
+    auctionEndTime: post.auction_end_time     ? new Date(post.auction_end_time)         : undefined,
+  };
+
+  await ctx.reply(`✏️ Post #${id} cancelled. Opening wizard with existing details — just enter a new time.`);
+  return ctx.scene.enter('schedule-post-wizard', { prefill });
+}
