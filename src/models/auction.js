@@ -13,7 +13,7 @@ export const AuctionModel = {
            (telegram_message_id, name, description, starting_bid, min_increment,
             start_time, end_time, created_by, status)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,
-           CASE WHEN $6 IS NULL OR $6 <= NOW() THEN 'active' ELSE 'upcoming' END)
+           CASE WHEN $6::TIMESTAMPTZ IS NULL OR $6::TIMESTAMPTZ <= NOW() THEN 'active' ELSE 'upcoming' END)
          RETURNING *`,
         [telegramMessageId, name, description || null, startingBid, minIncrement,
          startTime || null, endTime, createdBy]
