@@ -48,6 +48,15 @@ export const AuctionModel = {
     return rows[0] || null;
   },
 
+  async listActive() {
+    const { rows } = await query(
+      `SELECT * FROM auctions
+       WHERE status IN ('upcoming', 'active')
+       ORDER BY end_time ASC`
+    );
+    return rows;
+  },
+
   // Activate upcoming auctions whose start_time has passed
   async activateDue() {
     const { rows } = await query(
