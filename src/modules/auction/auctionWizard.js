@@ -149,6 +149,8 @@ newAuctionWizard.command('cancel', async (ctx) => {
   return ctx.scene.leave();
 });
 
-newAuctionWizard.hears(/^\/\w+/, (ctx) =>
-  ctx.reply('⚠️ Use /cancel to exit the auction wizard first.')
-);
+// Any other command: silently leave the wizard so the global handler can process it
+newAuctionWizard.hears(/^\/\w+/, async (ctx, next) => {
+  await ctx.scene.leave();
+  return next();
+});
