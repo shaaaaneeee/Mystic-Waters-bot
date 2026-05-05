@@ -205,16 +205,28 @@ export async function handleSendAllInvoices(ctx) {
 }
 
 // ── /pending ──────────────────────────────────────────────────────
-export async function handlePending(ctx) {
+export async function handlePending(ctx, page = 0) {
   const rows = await InvoiceModel.getPendingSummary();
-  if (rows.length === 0) return ctx.reply('✅ No pending uninvoiced claims.');
 
-  const lines = rows.map(r => {
-    const handle = r.username ? `@${r.username}` : r.first_name || `ID:${r.telegram_id}`;
-    return `  • ${handle} — ${r.claim_count} item(s) — $${r.total}`;
+  const { text, markup } = buildPageMessage({
+    items:     rows,
+    page,
+    entityKey: 'pending',
+    title:     '💰 *Pending Invoices*',
+    emptyText: '✅ No pending uninvoiced claims.',
+    renderItem: (r) => {
+      const handle = r.username ? `@${r.username}` : r.first_name || `ID:${r.telegram_id}`;
+      return `👤 *${handle}*\n${r.claim_count} item(s) · $${r.total}`;
+    },
+    buildItemButtons: (r) => [
+      Markup.button.callback('🧾 Send Invoice', `act:invoice:${r.telegram_id}`),
+    ],
   });
 
-  return ctx.reply(`💰 *Pending Invoices*\n\n${lines.join('\n')}`, { parse_mode: 'Markdown' });
+  const opts = { parse_mode: 'Markdown', ...markup };
+  return ctx.callbackQuery
+    ? ctx.editMessageText(text, opts)
+    : ctx.reply(text, opts);
 }
 
 // ── /invoicehistory ───────────────────────────────────────────────
