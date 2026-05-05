@@ -371,6 +371,7 @@ export function handleHelp(ctx) {
     `*📅 Scheduling*\n` +
     `/schedulepost — schedule a channel post\n` +
     `/listscheduled — pending posts\n` +
+    `/editscheduled <id> — reschedule a pending post\n` +
     `/deletescheduled <id> — cancel scheduled post\n\n` +
 
     `*⚙️ Other*\n` +
