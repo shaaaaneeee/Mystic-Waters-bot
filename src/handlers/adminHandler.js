@@ -372,8 +372,8 @@ export function handleHelp(ctx) {
 }
 
 // ── Auction commands ──────────────────────────────────────────────
-export async function handleAuctionBids(ctx) {
-  const rawMsgId = ctx.message.text.split(' ')[1];
+export async function handleAuctionBids(ctx, overrideMsgId = null) {
+  const rawMsgId = overrideMsgId !== null ? String(overrideMsgId) : ctx.message?.text?.split(' ')[1];
   if (!rawMsgId) return ctx.reply('Usage: `/auctionbids <post_id>`', { parse_mode: 'Markdown' });
 
   const auction = await AuctionModel.findByMessageId(parseInt(rawMsgId, 10));
