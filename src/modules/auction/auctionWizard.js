@@ -1,5 +1,5 @@
 // src/modules/auction/auctionWizard.js
-import { Scenes } from 'telegraf';
+import { Scenes, Markup } from 'telegraf';
 import { AuctionModel } from '../../models/auction.js';
 
 export const NEW_AUCTION_WIZARD_ID = 'new-auction-wizard';
@@ -87,18 +87,25 @@ export const newAuctionWizard = new Scenes.WizardScene(
       `Description: ${description || '_none_'}\n` +
       `Starting bid: *$${startingBid.toFixed(2)}*\n` +
       `Min increment: *$${minIncrement.toFixed(2)}*\n` +
-      `Ends: *${endStr} SGT*\n\n` +
-      `Reply *yes* to create or *no* to cancel.`,
-      { parse_mode: 'Markdown' }
+      `Ends: *${endStr} SGT*`,
+      {
+        parse_mode: 'Markdown',
+        ...Markup.inlineKeyboard([
+          Markup.button.callback('✅ Yes', 'auction_confirm_yes'),
+          Markup.button.callback('❌ No', 'auction_confirm_no'),
+        ]),
+      }
     );
     return ctx.wizard.next();
   },
 
   // Step 6: create auction
   async (ctx) => {
-    if (!ctx.message?.text) return;
-    if (ctx.message.text.trim().toLowerCase() !== 'yes') {
-      await ctx.reply('❌ Cancelled. No auction was created.');
+    if (!ctx.callbackQuery?.data) return;
+    await ctx.answerCbQuery();
+
+    if (ctx.callbackQuery.data !== 'auction_confirm_yes') {
+      await ctx.editMessageText('❌ Cancelled. No auction was created.');
       return ctx.scene.leave();
     }
 
@@ -106,7 +113,7 @@ export const newAuctionWizard = new Scenes.WizardScene(
 
     const existing = await AuctionModel.findByMessageId(messageId);
     if (existing) {
-      await ctx.reply(
+      await ctx.editMessageText(
         `⚠️ Post #${messageId} already has an auction: *${existing.name}*.`,
         { parse_mode: 'Markdown' }
       );
@@ -124,7 +131,7 @@ export const newAuctionWizard = new Scenes.WizardScene(
     });
 
     const endStr = new Date(auction.end_time).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
-    await ctx.reply(
+    await ctx.editMessageText(
       `✅ *Auction created!*\n\n` +
       `*${auction.name}*\n` +
       `Starting bid: $${parseFloat(auction.starting_bid).toFixed(2)}\n` +
