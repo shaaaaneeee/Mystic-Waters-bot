@@ -60,21 +60,66 @@ export async function handleNewProduct(ctx) {
 }
 
 // ── /stock ────────────────────────────────────────────────────────
-export async function handleStock(ctx) {
+export async function handleStock(ctx, page = 0) {
   const products = await ProductModel.listActive();
-  if (products.length === 0) return ctx.reply('No active listings.');
 
-  const lines = products.map(p => {
-    const statusEmoji = p.status === 'sold_out' ? '🔴' : '🟢';
-    return (
-      `${statusEmoji} *${p.name}* (Post #${p.telegram_message_id})\n` +
-      `   $${parseFloat(p.price).toFixed(2)} · ` +
-      `${p.quantity_remaining}/${p.quantity_total} left · ` +
-      `${p.confirmed_claims} claimed`
-    );
+  const { text, markup } = buildPageMessage({
+    items:     products,
+    page,
+    entityKey: 'stock',
+    title:     '📦 *Stock Overview*',
+    emptyText: 'No active listings.',
+    renderItem: (p) => {
+      const emoji = p.status === 'sold_out' ? '🔴' : '🟢';
+      return (
+        `${emoji} *${p.name}*\n` +
+        `$${parseFloat(p.price).toFixed(2)} · ${p.quantity_remaining}/${p.quantity_total} left · ${p.confirmed_claims} claimed`
+      );
+    },
+    buildItemButtons: (p) => [
+      Markup.button.callback('📋 Claims', `act:claims:${p.telegram_message_id}`),
+      Markup.button.callback('🗑️ Cancel', `act:cancel_prod:${p.telegram_message_id}`),
+    ],
   });
 
-  return ctx.reply(`📦 *Stock Overview*\n\n${lines.join('\n\n')}`, { parse_mode: 'Markdown' });
+  const opts = { parse_mode: 'Markdown', ...markup };
+  return ctx.callbackQuery
+    ? ctx.editMessageText(text, opts)
+    : ctx.reply(text, opts);
+}
+
+// ── /auctions ─────────────────────────────────────────────────────
+export async function handleAuctions(ctx, page = 0) {
+  const auctions = await AuctionModel.listActive();
+
+  const { text, markup } = buildPageMessage({
+    items:     auctions,
+    page,
+    entityKey: 'auctions',
+    title:     '🔨 *Active Auctions*',
+    emptyText: 'No active or upcoming auctions.',
+    renderItem: (a) => {
+      const statusEmoji = a.status === 'active' ? '🟢' : '🕐';
+      const endStr      = new Date(a.end_time).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
+      const bidStr      = a.current_bid
+        ? `$${parseFloat(a.current_bid).toFixed(2)}`
+        : `$${parseFloat(a.starting_bid).toFixed(2)} start`;
+      return `${statusEmoji} *${a.name}*\n${bidStr} · ends ${endStr} SGT`;
+    },
+    buildItemButtons: (a) => {
+      const btns = [Markup.button.callback('📊 Bids', `act:bids:${a.telegram_message_id}`)];
+      if (a.status === 'active')
+        btns.push(Markup.button.callback('⏹ End Early', `act:end_auction:${a.telegram_message_id}`));
+      if (a.status === 'active' || a.status === 'upcoming')
+        btns.push(Markup.button.callback('❌ Cancel', `act:cancel_auction:${a.telegram_message_id}`));
+      return btns;
+    },
+  });
+
+  const opts = { parse_mode: 'Markdown', ...markup };
+  return ctx.callbackQuery
+    ? ctx.editMessageText(text, opts)
+    : ctx.reply(text, opts);
 }
 
 // ── /claims <message_id> ─────────────────────────────────────────
