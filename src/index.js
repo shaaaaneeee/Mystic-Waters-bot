@@ -120,6 +120,88 @@ bot.on('callback_query', async (ctx) => {
       { parse_mode: 'Markdown' }
     );
   }
+
+  // ── Pagination ──────────────────────────────────────────────────
+  if (data.startsWith('pg:')) {
+    if (!isAdmin(ctx.from?.id)) return;
+    const parts  = data.split(':');
+    const entity = parts[1];
+    const page   = parseInt(parts[2], 10);
+    if (entity === 'stock')     return handleStock(ctx, page);
+    if (entity === 'auctions')  return handleAuctions(ctx, page);
+    if (entity === 'scheduled') return handleListScheduled(ctx, page);
+    if (entity === 'pending')   return handlePending(ctx, page);
+    return;
+  }
+
+  // ── Product actions ─────────────────────────────────────────────
+  if (data.startsWith('act:claims:')) {
+    if (!isAdmin(ctx.from?.id)) return;
+    const msgId = parseInt(data.split(':')[2], 10);
+    return handleViewClaims(ctx, msgId);
+  }
+
+  if (data.startsWith('act:cancel_prod:')) {
+    if (!isAdmin(ctx.from?.id)) return;
+    const msgId   = parseInt(data.split(':')[2], 10);
+    const product = await ProductModel.findByMessageId(msgId);
+    if (!product)                       return ctx.reply('⚠️ Product not found.');
+    if (product.status === 'cancelled') return ctx.reply('⚠️ Already cancelled.');
+    await ProductModel.cancel(product.id);
+    return ctx.reply(
+      `🗑️ *${product.name}* marked as cancelled.\n\nRemember to delete the post from the channel manually.`,
+      { parse_mode: 'Markdown' }
+    );
+  }
+
+  // ── Auction actions ─────────────────────────────────────────────
+  if (data.startsWith('act:bids:')) {
+    if (!isAdmin(ctx.from?.id)) return;
+    const msgId = parseInt(data.split(':')[2], 10);
+    return handleAuctionBids(ctx, msgId);
+  }
+
+  if (data.startsWith('act:end_auction:')) {
+    if (!isAdmin(ctx.from?.id)) return;
+    const msgId = parseInt(data.split(':')[2], 10);
+    return handleEndAuction(ctx, msgId);
+  }
+
+  if (data.startsWith('act:cancel_auction:')) {
+    if (!isAdmin(ctx.from?.id)) return;
+    const msgId = parseInt(data.split(':')[2], 10);
+    return handleCancelAuction(ctx, msgId);
+  }
+
+  // ── Scheduled post actions ──────────────────────────────────────
+  if (data.startsWith('act:del_sched:')) {
+    if (!isAdmin(ctx.from?.id)) return;
+    const id = parseInt(data.split(':')[2], 10);
+    return handleDeleteScheduled(ctx, id);
+  }
+
+  if (data.startsWith('act:edit_sched:')) {
+    if (!isAdmin(ctx.from?.id)) return;
+    const id = parseInt(data.split(':')[2], 10);
+    return handleEditScheduled(ctx, id);
+  }
+
+  // ── Invoice actions ─────────────────────────────────────────────
+  if (data.startsWith('act:invoice:')) {
+    if (!isAdmin(ctx.from?.id)) return;
+    const telegramId = parseInt(data.split(':')[2], 10);
+    try {
+      const invoice = await generateInvoiceForAdmin(ctx.telegram, ctx.from.id, telegramId);
+      if (!invoice) return ctx.reply('ℹ️ No pending claims for this user.');
+      return ctx.reply(`✅ Invoice #${invoice.id} sent.`);
+    } catch (err) {
+      console.error('[callback] invoice error:', err.message);
+      const reason = err.message?.includes("bot can't initiate")
+        ? 'User must send /start to the bot first'
+        : err.message;
+      return ctx.reply(`❌ Failed: ${reason}`);
+    }
+  }
 });
 
 // ── Contact sharing (registration) ───────────────────────────────
