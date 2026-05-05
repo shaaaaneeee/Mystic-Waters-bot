@@ -62,6 +62,7 @@ bot.command('giveawaystats',   adminOnly, handleGiveawayStats);
 bot.command('cleargiveaway',   adminOnly, handleClearGiveaway);
 bot.command('schedulepost',    adminOnly, (ctx) => ctx.scene.enter(SCHEDULE_WIZARD_ID));
 bot.command('listscheduled',   adminOnly, handleListScheduled);
+bot.command('editscheduled',   adminOnly, handleEditScheduled);
 bot.command('deletescheduled', adminOnly, handleDeleteScheduled);
 bot.command('help',            adminOnly, handleHelp);
 
