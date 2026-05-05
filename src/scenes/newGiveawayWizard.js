@@ -80,3 +80,9 @@ newGiveawayWizard.command('cancel', async (ctx) => {
   await ctx.reply('❌ Cancelled.');
   return ctx.scene.leave();
 });
+
+// Any other command: silently leave the wizard so the global handler can process it
+newGiveawayWizard.hears(/^\/\w+/, async (ctx, next) => {
+  await ctx.scene.leave();
+  return next();
+});
