@@ -527,8 +527,9 @@ export async function handleListScheduled(ctx) {
   return ctx.reply(`📅 *Scheduled Posts*\n\n${lines.join('\n')}`, { parse_mode: 'Markdown' });
 }
 
-export async function handleDeleteScheduled(ctx) {
-  const id = parseInt(ctx.message.text.split(' ')[1], 10);
+export async function handleDeleteScheduled(ctx, overrideId = null) {
+  const raw = overrideId !== null ? overrideId : parseInt(ctx.message?.text?.split(' ')[1], 10);
+  const id  = typeof raw === 'number' ? raw : parseInt(raw, 10);
   if (isNaN(id)) return ctx.reply('Usage: `/deletescheduled <id>`', { parse_mode: 'Markdown' });
 
   const { cancelScheduledPost } = await import('../modules/scheduler/schedulerService.js');
