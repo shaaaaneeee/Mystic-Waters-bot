@@ -15,7 +15,7 @@ import {
   handleInvoiceHistory, cancelInvoiceById, confirmPaidById,
   handleAuctionBids, handleEndAuction, handleCancelAuction,
   handleDrawGiveaway, handleGiveawayStats, handleClearGiveaway, handleClearGiveawayConfirm,
-  handleListScheduled, handleDeleteScheduled,
+  handleListScheduled, handleDeleteScheduled, handleEditScheduled,
 } from './handlers/adminHandler.js';
 import redis from '../config/redis.js';
 import { newProductWizard, NEW_PRODUCT_WIZARD_ID } from './scenes/newProductWizard.js';
