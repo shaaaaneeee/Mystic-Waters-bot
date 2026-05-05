@@ -568,20 +568,34 @@ export async function handleClearGiveawayConfirm(ctx) {
 }
 
 // ── Scheduler commands ────────────────────────────────────────────
-export async function handleListScheduled(ctx) {
+export async function handleListScheduled(ctx, page = 0) {
   const posts = await ScheduledPostModel.listPending();
-  if (posts.length === 0) return ctx.reply('No scheduled posts pending.');
 
   const typeEmoji = { free_form: '📝', product_listing: '📦', auction_listing: '🔨' };
-  const lines = posts.map(p => {
-    const emoji = typeEmoji[p.type] || '📅';
-    const label = p.product_name || p.auction_name
-      || (p.content ? p.content.slice(0, 30) + (p.content.length > 30 ? '…' : '') : '—');
-    const when  = new Date(p.scheduled_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
-    return `${emoji} #${p.id} — ${label} — ${when} SGT`;
+
+  const { text, markup } = buildPageMessage({
+    items:     posts,
+    page,
+    entityKey: 'scheduled',
+    title:     '📅 *Scheduled Posts*',
+    emptyText: 'No scheduled posts pending.',
+    renderItem: (p) => {
+      const emoji = typeEmoji[p.type] || '📅';
+      const label = p.product_name || p.auction_name
+        || (p.content ? p.content.slice(0, 40) + (p.content.length > 40 ? '…' : '') : '—');
+      const when = new Date(p.scheduled_at).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
+      return `${emoji} *#${p.id}* — ${label}\n${when} SGT`;
+    },
+    buildItemButtons: (p) => [
+      Markup.button.callback('✏️ Edit', `act:edit_sched:${p.id}`),
+      Markup.button.callback('🗑️ Delete', `act:del_sched:${p.id}`),
+    ],
   });
 
-  return ctx.reply(`📅 *Scheduled Posts*\n\n${lines.join('\n')}`, { parse_mode: 'Markdown' });
+  const opts = { parse_mode: 'Markdown', ...markup };
+  return ctx.callbackQuery
+    ? ctx.editMessageText(text, opts)
+    : ctx.reply(text, opts);
 }
 
 export async function handleDeleteScheduled(ctx, overrideId = null) {
