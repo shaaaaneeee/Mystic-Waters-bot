@@ -541,8 +541,9 @@ export async function handleDeleteScheduled(ctx, overrideId = null) {
   return ctx.reply(`✅ Scheduled post #${id} cancelled.`);
 }
 
-export async function handleEditScheduled(ctx) {
-  const id = parseInt(ctx.message.text.split(' ')[1], 10);
+export async function handleEditScheduled(ctx, overrideId = null) {
+  const raw = overrideId !== null ? overrideId : parseInt(ctx.message?.text?.split(' ')[1], 10);
+  const id  = typeof raw === 'number' ? raw : parseInt(raw, 10);
   if (isNaN(id)) return ctx.reply('Usage: `/editscheduled <id>`', { parse_mode: 'Markdown' });
 
   const post = await ScheduledPostModel.findById(id);
