@@ -295,25 +295,13 @@ export async function cancelInvoiceById(ctx, invoiceId, reason) {
     return ctx.reply(`❌ Invoice #${invoiceId} could not be cancelled (not active or not found).`);
   }
 
-  const restoreResults = await Promise.allSettled(
-    claims.map(async (c) => {
-      const { rows } = await query(
-        `SELECT p.id FROM products p
-         JOIN claims cl ON cl.product_id = p.id
-         WHERE cl.id = $1`,
-        [c.claim_id]
-      );
-      const productId = rows[0]?.id;
-      if (productId) return restoreClaimedUnit(productId);
-    })
-  );
-
-  const failedRestores = restoreResults.filter(r => r.status === 'rejected').length;
-  let msg = `✅ Invoice #${invoiceId} cancelled. ${claims.length} claim(s) returned to queue.`;
-  if (failedRestores > 0) msg += `\n⚠️ ${failedRestores} stock restore(s) failed — check manually.`;
+  let msg = `✅ Invoice #${invoiceId} cancelled. ${claims.length} claim(s) voided.`;
   if (reason) msg += `\n_Reason: ${reason}_`;
 
-  return ctx.reply(msg, { parse_mode: 'Markdown' });
+  const opts = { parse_mode: 'Markdown' };
+  return ctx.callbackQuery
+    ? ctx.editMessageText(msg, opts)
+    : ctx.reply(msg, opts);
 }
 
 // ── /start (admin variant) ────────────────────────────────────────
