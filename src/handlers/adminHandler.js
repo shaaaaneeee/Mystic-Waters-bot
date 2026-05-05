@@ -9,7 +9,6 @@ import { GiveawayModel } from '../models/giveaway.js';
 import { GiveawayService } from '../modules/giveaway/giveawayService.js';
 import { ScheduledPostModel } from '../models/scheduledPost.js';
 import { generateInvoiceForAdmin, generateAllInvoicesForAdmin } from '../services/invoiceService.js';
-import { restoreClaimedUnit } from '../services/stockService.js';
 
 // ── /newproduct ───────────────────────────────────────────────────
 export async function handleNewProduct(ctx) {
