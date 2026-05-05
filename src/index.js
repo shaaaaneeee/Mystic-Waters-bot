@@ -224,14 +224,45 @@ bot.on('message', async (ctx, next) => {
   if (!messageId) return ctx.reply('⚠️ Could not read the post ID from that forwarded message.');
 
   const { rows } = await query(
-    'SELECT post_type FROM post_registry WHERE telegram_message_id = $1',
+    `SELECT pr.post_type, pr.ref_id,
+            p.name  AS product_name,  p.status AS product_status,
+            a.name  AS auction_name,  a.status AS auction_status
+     FROM post_registry pr
+     LEFT JOIN products p ON pr.post_type = 'product' AND p.id = pr.ref_id
+     LEFT JOIN auctions a ON pr.post_type = 'auction' AND a.id = pr.ref_id
+     WHERE pr.telegram_message_id = $1`,
     [messageId]
   );
+
   if (rows[0]) {
-    return ctx.reply(
-      `⚠️ Post #${messageId} is already registered as a *${rows[0].post_type}*.`,
-      { parse_mode: 'Markdown' }
-    );
+    const reg = rows[0];
+
+    if (reg.post_type === 'product') {
+      const statusEmoji = reg.product_status === 'sold_out' ? '🔴' : '🟢';
+      return ctx.reply(
+        `${statusEmoji} *${reg.product_name}* is registered as a product.`,
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([[
+            Markup.button.callback('📋 View Claims',    `act:claims:${messageId}`),
+            Markup.button.callback('🗑️ Cancel Listing', `act:cancel_prod:${messageId}`),
+          ]]),
+        }
+      );
+    }
+
+    if (reg.post_type === 'auction') {
+      const statusEmoji = reg.auction_status === 'active' ? '🟢' : '🕐';
+      const btns = [Markup.button.callback('📊 View Bids', `act:bids:${messageId}`)];
+      if (reg.auction_status === 'active')
+        btns.push(Markup.button.callback('⏹ End Early', `act:end_auction:${messageId}`));
+      if (reg.auction_status === 'active' || reg.auction_status === 'upcoming')
+        btns.push(Markup.button.callback('❌ Cancel', `act:cancel_auction:${messageId}`));
+      return ctx.reply(
+        `${statusEmoji} *${reg.auction_name}* is registered as an auction.`,
+        { parse_mode: 'Markdown', ...Markup.inlineKeyboard([btns]) }
+      );
+    }
   }
 
   return ctx.reply(
