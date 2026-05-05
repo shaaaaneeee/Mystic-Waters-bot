@@ -16,7 +16,9 @@ import {
   handleAuctionBids, handleEndAuction, handleCancelAuction,
   handleDrawGiveaway, handleGiveawayStats, handleClearGiveaway, handleClearGiveawayConfirm,
   handleListScheduled, handleDeleteScheduled, handleEditScheduled,
+  handleAuctions,
 } from './handlers/adminHandler.js';
+import { generateInvoiceForAdmin } from './services/invoiceService.js';
 import redis from '../config/redis.js';
 import { newProductWizard, NEW_PRODUCT_WIZARD_ID } from './scenes/newProductWizard.js';
 import { newAuctionWizard, NEW_AUCTION_WIZARD_ID } from './modules/auction/auctionWizard.js';
