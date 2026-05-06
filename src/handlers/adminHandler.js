@@ -244,16 +244,18 @@ export async function handleInvoiceHistory(ctx) {
   return ctx.reply(`📋 *Invoice History* (last 50)\n\n${lines.join('\n')}`, { parse_mode: 'Markdown' });
 }
 
-// ── /confirmpaid <invoice_id> ─────────────────────────────────────
+// ── /confirmpaid @username ────────────────────────────────────────
 export async function handleConfirmPaid(ctx) {
-  const args  = ctx.message.text.split(' ');
-  const rawId = args[1];
-  if (!rawId) return ctx.reply('Usage: `/confirmpaid <invoice_id>`', { parse_mode: 'Markdown' });
+  const arg = ctx.message.text.split(' ')[1];
+  if (!arg) return ctx.reply('Usage: `/confirmpaid @username`', { parse_mode: 'Markdown' });
 
-  const invoiceId = parseInt(rawId, 10);
-  if (isNaN(invoiceId)) return ctx.reply('❌ Invalid invoice ID.');
+  const user = await UserModel.findByUsername(arg);
+  if (!user) return ctx.reply(`❌ No user found: ${arg.startsWith('@') ? arg : '@' + arg}`);
 
-  return confirmPaidById(ctx, invoiceId);
+  const invoice = await InvoiceModel.findActiveForUser(user.id);
+  if (!invoice) return ctx.reply(`❌ No active invoice for ${arg.startsWith('@') ? arg : '@' + arg}.`);
+
+  return confirmPaidById(ctx, invoice.id);
 }
 
 export async function confirmPaidById(ctx, invoiceId) {
