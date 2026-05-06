@@ -153,6 +153,15 @@ export const InvoiceModel = {
     return rows;
   },
 
+  async findActiveForUser(userId) {
+    const { rows } = await query(
+      `SELECT * FROM invoices WHERE user_id = $1 AND status = 'active'
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    );
+    return rows[0] || null;
+  },
+
   async listHistory() {
     const { rows } = await query(
       `SELECT i.*, u.telegram_id, u.username, u.first_name
