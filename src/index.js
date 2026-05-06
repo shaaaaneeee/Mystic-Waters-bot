@@ -202,12 +202,6 @@ bot.on('callback_query', async (ctx) => {
   }
 });
 
-// ── Contact sharing (registration) ───────────────────────────────
-bot.on('contact', (ctx) => {
-  if (ctx.message?.chat?.type !== 'private') return;
-  return handleContactShare(ctx);
-});
-
 // ── Forward channel post in admin DM → choose product or auction ──
 bot.on('message', async (ctx, next) => {
   const msg = ctx.message;
