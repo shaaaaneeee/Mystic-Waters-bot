@@ -33,8 +33,7 @@ export function commentOnly(ctx, next) {
   return next();
 }
 
-// Gate: user must be registered before claiming or bidding.
-// Upserts the user row so we always have a record, then checks registration_status.
+// Upserts the user row so we always have a record, then proceeds unconditionally.
 export async function registrationRequired(ctx, next) {
   const from = ctx.from;
   if (!from) return;
@@ -46,18 +45,6 @@ export async function registrationRequired(ctx, next) {
     lastName: from.last_name,
   });
 
-  if (user.registration_status === 'registered') {
-    ctx.dbUser = user;
-    return next();
-  }
-
-  const botUsername = ctx.botInfo?.username;
-  const link = botUsername
-    ? `https://t.me/${botUsername}?start=register`
-    : 'the bot DM';
-
-  return ctx.reply(
-    `👋 To participate, please register first → ${link}\n\nIt takes 10 seconds.`,
-    { reply_to_message_id: ctx.message?.message_id }
-  );
+  ctx.dbUser = user;
+  return next();
 }
