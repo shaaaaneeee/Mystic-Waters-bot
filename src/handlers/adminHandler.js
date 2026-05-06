@@ -364,9 +364,9 @@ export function handleAdminStart(ctx) {
     `*Workflow*\n` +
     `1. Post to your channel\n` +
     `2. Forward the post here → choose Product or Auction\n` +
-    `3. Buyers register via bot link, then comment in the group\n` +
+    `3. Buyers comment in the group to claim\n` +
     `4. Generate invoices: \`/invoice @user\` or \`/invoiceall\`\n` +
-    `5. Confirm payment: \`/confirmpaid <id>\`\n\n` +
+    `5. Confirm payment: \`/confirmpaid @username\`\n\n` +
     `*Quick Status*\n` +
     `/stock · /pending\n\n` +
     `Type /help for the full command reference.`,
