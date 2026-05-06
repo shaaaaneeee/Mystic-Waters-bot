@@ -73,9 +73,20 @@ async function firePost(bot, post) {
 
   let sentMsgId = null;
   try {
-    const sentMsg = await bot.telegram.sendMessage(
-      process.env.CHANNEL_ID, content, { parse_mode: 'Markdown' }
-    );
+    let sentMsg;
+    if (post.image_file_id) {
+      sentMsg = await bot.telegram.sendPhoto(
+        process.env.CHANNEL_ID,
+        post.image_file_id,
+        { caption: content, parse_mode: 'Markdown' }
+      );
+    } else {
+      sentMsg = await bot.telegram.sendMessage(
+        process.env.CHANNEL_ID,
+        content,
+        { parse_mode: 'Markdown' }
+      );
+    }
     sentMsgId = sentMsg.message_id;
     console.log(`[Scheduler] Sent post #${post.id} (${post.type}) → channel msg ${sentMsgId}`);
   } catch (err) {
@@ -139,7 +150,7 @@ export async function init(bot) {
       const { runAuctionLifecycle } = await import('../auction/auctionService.js');
       await runAuctionLifecycle(bot.telegram, adminId);
     } catch (err) {
-      console.error('[Cron] Auction lifecycle error:', err.message);
+      console.error('[Cron] Auction lifecycle errors:', err.message);
     }
   });
 

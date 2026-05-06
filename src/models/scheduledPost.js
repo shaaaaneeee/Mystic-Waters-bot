@@ -7,22 +7,22 @@ export const ScheduledPostModel = {
     type, content,
     productName, productPrice, productQuantity, productDescription,
     auctionName, auctionDescription, auctionStartingBid, auctionMinIncrement, auctionEndTime,
-    scheduledAt, createdBy,
+    scheduledAt, createdBy, imageFileId,
   }) {
     const { rows } = await query(
       `INSERT INTO scheduled_posts
          (type, content,
           product_name, product_price, product_quantity, product_description,
           auction_name, auction_description, auction_starting_bid, auction_min_increment, auction_end_time,
-          scheduled_at, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          scheduled_at, created_by, image_file_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        RETURNING *`,
       [
         type, content || null,
         productName || null, productPrice || null, productQuantity || null, productDescription || null,
         auctionName || null, auctionDescription || null, auctionStartingBid || null,
         auctionMinIncrement || null, auctionEndTime || null,
-        scheduledAt, createdBy,
+        scheduledAt, createdBy, imageFileId || null,
       ]
     );
     return rows[0];

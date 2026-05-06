@@ -9,13 +9,14 @@ let _bot = null;
 export function initScheduleWizard(bot) { _bot = bot; }
 
 // Step indices for selectStep() jumps
-const STEP_SCHEDULE = 7; // all types arrive here for "when to post"
-const STEP_CONFIRM  = 8; // preview confirm + create
+const STEP_IMAGE    = 7; // all types arrive here for optional image upload
+const STEP_SCHEDULE = 8; // all types arrive here for "when to post"
+const STEP_CONFIRM  = 9; // preview confirm + create
 
 // Step flow per type:
-//   free_form:        0→1→2(content)→selectStep(7)→7→8
-//   product_listing:  0→1→2(name)→3(price)→4(qty)→5(desc)→selectStep(7)→7→8
-//   auction_listing:  0→1→2(name)→3(desc)→4(startBid)→5(minInc)→6(endTime)→selectStep(7)→7→8
+//   free_form:        0→1→2(content)→selectStep(7)↲7→8→9
+//   product_listing:  0→1→2(name)→3(price)→4(qty)→5(desc)→selectStep(7)→7→8→9
+//   auction_listing:  0→1→2(name)→3(desc)→4(startBid)→5(minInc)→6(endTime)→selectStep(7)→7→8→9
 
 function parseSGTDateTime(str) {
   const full  = str.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
@@ -60,7 +61,7 @@ function buildPreview(state) {
 export const scheduleWizard = new Scenes.WizardScene(
   SCHEDULE_WIZARD_ID,
 
-  // ── Step 0: ask type (or handle prefill from /editscheduled) ──────────────
+  // ── Step 0: ask type (or handle prefill from /editscheduled) ──────────────────
   async (ctx) => {
     const prefill = ctx.scene.state?.prefill;
     if (prefill) {
@@ -93,7 +94,7 @@ export const scheduleWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
 
-  // ── Step 1: record type, ask first field ──────────────────────────────────
+  // ── Step 1: record type, ask first field ─────────────────────────────────────
   async (ctx) => {
     if (!ctx.message?.text) return;
     const t = ctx.message.text;
@@ -111,7 +112,7 @@ export const scheduleWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
 
-  // ── Step 2: content (free_form) / name (product+auction) ─────────────────
+  // ── Step 2: content (free_form) / name (product+auction) ────────────────────
   async (ctx) => {
     if (!ctx.message?.text) return;
     const type = ctx.wizard.state.type;
@@ -119,10 +120,10 @@ export const scheduleWizard = new Scenes.WizardScene(
     if (type === 'free_form') {
       ctx.wizard.state.content = ctx.message.text.trim();
       await ctx.reply(
-        'When to post? (SGT)\n\nFormat: `DD/MM/YYYY HH:MM`\nExample: `20/05/2026 18:00`',
-        { parse_mode: 'Markdown' }
+        '📸 Send an item image, or tap Skip to post without one.',
+        Markup.inlineKeyboard([[Markup.button.callback('Skip (no image)', 'skip_image')]])
       );
-      return ctx.wizard.selectStep(STEP_SCHEDULE);
+      return ctx.wizard.selectStep(STEP_IMAGE);
     }
 
     const name = ctx.message.text.trim();
@@ -137,7 +138,7 @@ export const scheduleWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
 
-  // ── Step 3: price (product) / description (auction) ──────────────────────
+  // ── Step 3: price (product) / description (auction) ─────────────────────────
   async (ctx) => {
     if (!ctx.message?.text) return;
     const type = ctx.wizard.state.type;
@@ -154,14 +155,14 @@ export const scheduleWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
 
-  // ── Step 4: quantity (product) / starting_bid (auction) ──────────────────
+  // ── Step 4: quantity (product) / starting_bid (auction) ─────────────────────
   async (ctx) => {
     if (!ctx.message?.text) return;
     const type = ctx.wizard.state.type;
 
     if (type === 'product_listing') {
       const q = parseInt(ctx.message.text.trim(), 10);
-      if (isNaN(q) || q <= 0) return ctx.reply('❌ Enter a whole number greater than 0:');
+      if (isNaN(q) || q < 0) return ctx.reply('❌ Enter a whole number greater than 0:');
       ctx.wizard.state.quantity = q;
       await ctx.reply('Item description? (optional — send `-` to skip)', { parse_mode: 'Markdown' });
     } else {
@@ -173,7 +174,7 @@ export const scheduleWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
 
-  // ── Step 5: description (product → then jump) / min_increment (auction) ──
+  // ── Step 5: description (product → then jump) / min_increment (auction) ─────
   async (ctx) => {
     if (!ctx.message?.text) return;
     const type = ctx.wizard.state.type;
@@ -181,10 +182,10 @@ export const scheduleWizard = new Scenes.WizardScene(
     if (type === 'product_listing') {
       ctx.wizard.state.description = ctx.message.text.trim() === '-' ? null : ctx.message.text.trim();
       await ctx.reply(
-        'When to post? (SGT)\n\nFormat: `DD/MM/YYYY HH:MM`\nExample: `20/05/2026 18:00`',
-        { parse_mode: 'Markdown' }
+        '📸 Send an item image, or tap Skip to post without one.',
+        Markup.inlineKeyboard([[Markup.button.callback('Skip (no image)', 'skip_image')]])
       );
-      return ctx.wizard.selectStep(STEP_SCHEDULE);
+      return ctx.wizard.selectStep(STEP_IMAGE);
     }
 
     const inc = parseFloat(ctx.message.text.trim());
@@ -197,7 +198,7 @@ export const scheduleWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
 
-  // ── Step 6: end_time (auction only) → then jump to schedule time ─────────
+  // ── Step 6: end_time (auction only) → then jump to image step ───────────────
   async (ctx) => {
     if (!ctx.message?.text) return;
     const endTime = parseSGTDateTime(ctx.message.text.trim());
@@ -206,13 +207,39 @@ export const scheduleWizard = new Scenes.WizardScene(
     }
     ctx.wizard.state.auctionEndTime = endTime;
     await ctx.reply(
-      'When to post to the channel? (SGT)\n\nFormat: `DD/MM/YYYY HH:MM`\nExample: `20/05/2026 18:00`',
-      { parse_mode: 'Markdown' }
+      '📸 Send an item image, or tap Skip to post without one.',
+      Markup.inlineKeyboard([[Markup.button.callback('Skip (no image)', 'skip_image')]])
     );
-    return ctx.wizard.selectStep(STEP_SCHEDULE);
+    return ctx.wizard.selectStep(STEP_IMAGE);
   },
 
-  // ── Step 7 (STEP_SCHEDULE): schedule time — all types arrive here ─────────
+  // ── Step 7 (STEP_IMAGE): optional image upload — all types arrive here ───────
+  async (ctx) => {
+    if (ctx.message?.photo) {
+      // Take the largest available resolution
+      const photos = ctx.message.photo;
+      ctx.wizard.state.imageFileId = photos[photos.length - 1].file_id;
+      await ctx.reply(
+        '✅ Image saved!\n\nWhen to post? (SGT)\n\nFormat: `DD/MM/YYYY HH:MM`\nExample: `20/05/2026 18:00`',
+        { parse_mode: 'Markdown' }
+      );
+      return ctx.wizard.selectStep(STEP_SCHEDULE);
+    }
+
+    if (ctx.callbackQuery?.data === 'skip_image') {
+      ctx.wizard.state.imageFileId = null;
+      await ctx.answerCbQuery('No image — skipping.');
+      await ctx.reply(
+        'When to post? (SGT)\n\nFormat: `DD/MM/YYYY HH:MM`\nExample: `20/05/2026 18:00`',
+        { parse_mode: 'Markdown' }
+      );
+      return ctx.wizard.selectStep(STEP_SCHEDULE);
+    }
+
+    await ctx.reply('Please send a photo or tap Skip.');
+  },
+
+  // ── Step 8 (STEP_SCHEDULE): schedule time — all types arrive here ────────────
   async (ctx) => {
     if (!ctx.message?.text) return;
     const when = parseSGTDateTime(ctx.message.text.trim());
@@ -223,15 +250,20 @@ export const scheduleWizard = new Scenes.WizardScene(
 
     const whenStr = when.toLocaleString('en-SG', { timeZone: 'Asia/Singapore' });
     const preview = buildPreview(ctx.wizard.state);
+    const caption = `*Post preview:*\n\n${preview}\n\n📅 *Posts at:* ${whenStr} SGT\n\nReply *yes* to schedule or *no* to cancel.`;
 
-    await ctx.reply(
-      `*Post preview:*\n\n${preview}\n\n*Posts at:* ${whenStr} SGT\n\nReply *yes* to schedule or *no* to cancel.`,
-      { parse_mode: 'Markdown' }
-    );
+    if (ctx.wizard.state.imageFileId) {
+      await ctx.replyWithPhoto(ctx.wizard.state.imageFileId, {
+        caption,
+        parse_mode: 'Markdown',
+      });
+    } else {
+      await ctx.reply(caption, { parse_mode: 'Markdown' });
+    }
     return ctx.wizard.next();
   },
 
-  // ── Step 8 (STEP_CONFIRM): confirm + create ───────────────────────────────
+  // ── Step 9 (STEP_CONFIRM): confirm + create ──────────────────────────────────
   async (ctx) => {
     if (!ctx.message?.text) return;
     if (ctx.message.text.trim().toLowerCase() !== 'yes') {
@@ -241,23 +273,24 @@ export const scheduleWizard = new Scenes.WizardScene(
 
     const {
       type, content, name, price, quantity, description,
-      startingBid, minIncrement, auctionEndTime, scheduledAt,
+      startingBid, minIncrement, auctionEndTime, scheduledAt, imageFileId,
     } = ctx.wizard.state;
 
     const post = await ScheduledPostModel.create({
       type,
-      content:             type === 'free_form'       ? content     : null,
-      productName:         type === 'product_listing' ? name        : null,
-      productPrice:        type === 'product_listing' ? price       : null,
-      productQuantity:     type === 'product_listing' ? quantity    : null,
-      productDescription:  type === 'product_listing' ? description : null,
-      auctionName:         type === 'auction_listing' ? name        : null,
-      auctionDescription:  type === 'auction_listing' ? description : null,
-      auctionStartingBid:  type === 'auction_listing' ? startingBid    : null,
-      auctionMinIncrement: type === 'auction_listing' ? minIncrement   : null,
-      auctionEndTime:      type === 'auction_listing' ? auctionEndTime : null,
+      content:              type === 'free_form'        ? content      : null,
+      productName:          type === 'product_listing'  ? name         : null,
+      productPrice:         type === 'product_listing'  ? price        : null,
+      productQuantity:      type === 'product_listing'  ? quantity     : null,
+      productDescription:   type === 'product_listing'  ? description  : null,
+      auctionName:          type === 'auction_listing'  ? name         : null,
+      auctionDescription:   type === 'auction_listing'  ? description  : null,
+      auctionStartingBid:   type === 'auction_listing'  ? startingBid  : null,
+      auctionMinIncrement:  type === 'auction_listing'  ? minIncrement : null,
+      auctionEndTime:       type === 'auction_listing'  ? auctionEndTime : null,
       scheduledAt,
       createdBy: ctx.from.id,
+      imageFileId: imageFileId ?? null,
     });
 
     if (_bot) schedulePost(_bot, post);
