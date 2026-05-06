@@ -291,34 +291,25 @@ export async function confirmPaidById(ctx, invoiceId) {
     : ctx.reply(msg, opts);
 }
 
-// ── /deleteinvoice <invoice_id> ────────────────────────────────────
+// ── /deleteinvoice @username ──────────────────────────────────────
 const PENDING_CANCEL = new Map(); // key: adminTelegramId string → { invoiceId, ts }
 
 export async function handleDeleteInvoice(ctx) {
-  const args  = ctx.message.text.split(' ');
-  const rawId = args[1];
-  if (!rawId) return ctx.reply('Usage: `/deleteinvoice <invoice_id>`', { parse_mode: 'Markdown' });
+  const arg = ctx.message.text.split(' ')[1];
+  if (!arg) return ctx.reply('Usage: `/deleteinvoice @username`', { parse_mode: 'Markdown' });
 
-  const invoiceId = parseInt(rawId, 10);
-  if (isNaN(invoiceId)) return ctx.reply('❌ Invalid invoice ID.');
+  const user = await UserModel.findByUsername(arg);
+  if (!user) return ctx.reply(`❌ No user found: ${arg.startsWith('@') ? arg : '@' + arg}`);
 
-  const invoice = await InvoiceModel.findById(invoiceId);
-  if (!invoice) return ctx.reply(`❌ Invoice #${invoiceId} not found.`);
-  if (invoice.status !== 'active') {
-    return ctx.reply(
-      `❌ Invoice #${invoiceId} is already *${invoice.status}*. Only active invoices can be cancelled.`,
-      { parse_mode: 'Markdown' }
-    );
-  }
+  const invoice = await InvoiceModel.findActiveForUser(user.id);
+  const handle  = arg.startsWith('@') ? arg : `@${arg}`;
 
-  const handle = invoice.username
-    ? `@${invoice.username}`
-    : (invoice.first_name || `ID:${invoice.telegram_id}`);
+  if (!invoice) return ctx.reply(`❌ No active invoice for ${handle}.`);
 
-  PENDING_CANCEL.set(`${ctx.from.id}`, { invoiceId, ts: Date.now() });
+  PENDING_CANCEL.set(`${ctx.from.id}`, { invoiceId: invoice.id, ts: Date.now() });
 
   return ctx.reply(
-    `⚠️ Cancel invoice #${invoiceId} for ${handle} ($${parseFloat(invoice.total_amount).toFixed(2)})?\n\n` +
+    `⚠️ Cancel invoice #${invoice.id} for ${handle} ($${parseFloat(invoice.total_amount).toFixed(2)})?\n\n` +
     `Reply \`CONFIRM\` to proceed, or ignore to abort.\n` +
     `_Optional: \`CONFIRM reason text\`_`,
     { parse_mode: 'Markdown' }
