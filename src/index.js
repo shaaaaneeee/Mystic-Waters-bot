@@ -45,27 +45,27 @@ bot.use(stage.middleware());
 // ── Admin commands ────────────────────────────────────────────────
 bot.command('cancel',          adminOnly, (ctx) => ctx.reply('Nothing to cancel.'));
 bot.command('newproduct',      adminOnly, handleNewProduct);
-bot.command('stock',           adminOnly, handleStock);
-bot.command('auctions',        adminOnly, handleAuctions);
-bot.command('claims',          adminOnly, handleViewClaims);
+bot.command('stock',           adminOnly, (ctx) => handleStock(ctx));
+bot.command('auctions',        adminOnly, (ctx) => handleAuctions(ctx));
+bot.command('claims',          adminOnly, (ctx) => handleViewClaims(ctx));
 bot.command('invoice',         adminOnly, handleSendInvoice);
 bot.command('invoiceall',      adminOnly, handleSendAllInvoices);
-bot.command('pending',         adminOnly, handlePending);
+bot.command('pending',         adminOnly, (ctx) => handlePending(ctx));
 bot.command('invoicehistory',  adminOnly, handleInvoiceHistory);
 bot.command('confirmpaid',     adminOnly, handleConfirmPaid);
 bot.command('deleteinvoice',   adminOnly, handleDeleteInvoice);
 bot.command('createauction',   adminOnly, (ctx) => ctx.scene.enter(NEW_AUCTION_WIZARD_ID));
-bot.command('auctionbids',     adminOnly, handleAuctionBids);
-bot.command('endauction',      adminOnly, handleEndAuction);
-bot.command('cancelauction',   adminOnly, handleCancelAuction);
+bot.command('auctionbids',     adminOnly, (ctx) => handleAuctionBids(ctx));
+bot.command('endauction',      adminOnly, (ctx) => handleEndAuction(ctx));
+bot.command('cancelauction',   adminOnly, (ctx) => handleCancelAuction(ctx));
 bot.command('newgiveaway',     adminOnly, (ctx) => ctx.scene.enter(NEW_GIVEAWAY_WIZARD_ID));
 bot.command('drawgiveaway',    adminOnly, handleDrawGiveaway);
 bot.command('giveawaystats',   adminOnly, handleGiveawayStats);
 bot.command('cleargiveaway',   adminOnly, handleClearGiveaway);
 bot.command('schedulepost',    adminOnly, (ctx) => ctx.scene.enter(SCHEDULE_WIZARD_ID));
-bot.command('listscheduled',   adminOnly, handleListScheduled);
-bot.command('editscheduled',   adminOnly, handleEditScheduled);
-bot.command('deletescheduled', adminOnly, handleDeleteScheduled);
+bot.command('listscheduled',   adminOnly, (ctx) => handleListScheduled(ctx));
+bot.command('editscheduled',   adminOnly, (ctx) => handleEditScheduled(ctx));
+bot.command('deletescheduled', adminOnly, (ctx) => handleDeleteScheduled(ctx));
 bot.command('help',            adminOnly, handleHelp);
 
 // ── /start ────────────────────────────────────────────────────────
