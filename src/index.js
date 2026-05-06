@@ -71,7 +71,6 @@ bot.command('help',            adminOnly, handleHelp);
 // ── /start ────────────────────────────────────────────────────────
 bot.command('start', (ctx) => {
   if (isAdmin(ctx.from?.id)) return handleAdminStart(ctx);
-  return handleStartForBuyer(ctx);
 });
 
 // ── Inline keyboard callbacks ─────────────────────────────────────
