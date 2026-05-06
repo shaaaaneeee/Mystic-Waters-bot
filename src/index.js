@@ -24,7 +24,6 @@ import { newProductWizard, NEW_PRODUCT_WIZARD_ID } from './scenes/newProductWiza
 import { newAuctionWizard, NEW_AUCTION_WIZARD_ID } from './modules/auction/auctionWizard.js';
 import { newGiveawayWizard, NEW_GIVEAWAY_WIZARD_ID } from './scenes/newGiveawayWizard.js';
 import { scheduleWizard, SCHEDULE_WIZARD_ID, initScheduleWizard } from './modules/scheduler/scheduleWizard.js';
-import { handleStartForBuyer, handleContactShare } from './modules/registration/registrationService.js';
 import { init as initScheduler } from './modules/scheduler/schedulerService.js';
 import { InvoiceModel } from './models/invoice.js';
 
