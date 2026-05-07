@@ -52,7 +52,7 @@ function buildPreview(state) {
       `Starting bid: $${state.startingBid.toFixed(2)}\n` +
       `Min increment: $${state.minIncrement.toFixed(2)}\n` +
       `Ends: ${endStr} SGT\n\n` +
-      `Comment \`bid [amount]\` to bid.`
+      `Comment your bid amount (e.g. \`25\`) to bid.`
     );
   }
   return '';

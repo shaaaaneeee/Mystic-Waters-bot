@@ -39,7 +39,7 @@ function buildPostContent(post) {
       `Min increment: $${parseFloat(post.auction_min_increment).toFixed(2)}`,
       `Ends: ${endStr} SGT`,
       '',
-      'Comment `bid [amount]` to place a bid!',
+      'Comment your bid amount (e.g. `25`) to place a bid!',
     ];
     return lines.filter(l => l !== null).join('\n').replace(/\n{3,}/g, '\n\n').trim();
   }

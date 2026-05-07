@@ -2,7 +2,7 @@
 import { AuctionModel } from '../models/auction.js';
 import { placeBid } from '../modules/auction/auctionService.js';
 
-const BID_REGEX    = /^bid\s+(\d+(?:\.\d{1,2})?)$/i;
+const BID_REGEX    = /^(\d+(?:\.\d{1,2})?)$/;
 const MAX_RETRIES  = 3;
 const RETRY_DELAY  = 400;
 
