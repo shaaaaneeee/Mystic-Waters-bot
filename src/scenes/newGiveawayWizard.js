@@ -1,8 +1,11 @@
 // src/scenes/newGiveawayWizard.js
-import { Scenes } from 'telegraf';
+import { Scenes, Markup } from 'telegraf';
 import { GiveawayModel } from '../models/giveaway.js';
 
 export const NEW_GIVEAWAY_WIZARD_ID = 'new-giveaway-wizard';
+
+let _bot = null;
+export function initGiveawayWizard(bot) { _bot = bot; }
 
 export const newGiveawayWizard = new Scenes.WizardScene(
   NEW_GIVEAWAY_WIZARD_ID,
@@ -43,33 +46,90 @@ export const newGiveawayWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
 
-  // Step 3: notes → confirm
+  // Step 3: notes → ask for image
   async (ctx) => {
     if (!ctx.message?.text) return;
     const notes = ctx.message.text.trim();
     ctx.wizard.state.notes = notes === '-' ? null : notes;
 
-    const { title, prizeDescription } = ctx.wizard.state;
     await ctx.reply(
-      `*Confirm giveaway:*\n\nTitle: *${title}*\nPrize: ${prizeDescription || '_none_'}\n\nReply *yes* to start.`,
-      { parse_mode: 'Markdown' }
+      '📸 Send a giveaway image, or tap Skip to post without one.',
+      Markup.inlineKeyboard([[Markup.button.callback('Skip (no image)', 'skip_giveaway_image')]])
     );
     return ctx.wizard.next();
   },
 
-  // Step 4: create pool
+  // Step 4: image/skip → confirm
+  async (ctx) => {
+    if (ctx.message?.photo) {
+      const photos = ctx.message.photo;
+      ctx.wizard.state.imageFileId = photos[photos.length - 1].file_id;
+      await ctx.answerCbQuery?.();
+    } else if (ctx.callbackQuery?.data === 'skip_giveaway_image') {
+      ctx.wizard.state.imageFileId = null;
+      await ctx.answerCbQuery('No image — skipping.');
+    } else {
+      await ctx.reply('Please send a photo or tap Skip.');
+      return;
+    }
+
+    const { title, prizeDescription, imageFileId } = ctx.wizard.state;
+    const previewText =
+      `*Confirm giveaway:*\n\n` +
+      `Title: *${title}*\n` +
+      `Prize: ${prizeDescription || '_none_'}\n\n` +
+      `Reply *yes* to start.`;
+
+    if (imageFileId) {
+      await ctx.replyWithPhoto(imageFileId, {
+        caption: previewText,
+        parse_mode: 'Markdown',
+      });
+    } else {
+      await ctx.reply(previewText, { parse_mode: 'Markdown' });
+    }
+    return ctx.wizard.next();
+  },
+
+  // Step 5: create pool + announce to channel
   async (ctx) => {
     if (!ctx.message?.text) return;
     if (ctx.message.text.trim().toLowerCase() !== 'yes') {
       await ctx.reply('❌ Cancelled.');
       return ctx.scene.leave();
     }
-    const { title, prizeDescription, notes } = ctx.wizard.state;
+
+    const { title, prizeDescription, notes, imageFileId } = ctx.wizard.state;
     const pool = await GiveawayModel.createPool({
-      title, prizeDescription, notes, createdBy: ctx.from.id,
+      title, prizeDescription, notes, createdBy: ctx.from.id, imageFileId,
     });
+
+    // Announce to channel
+    if (_bot && process.env.CHANNEL_ID) {
+      const announcement =
+        `🎁 *Giveaway: ${pool.title}*\n\n` +
+        (prizeDescription ? `Prize: ${prizeDescription}\n\n` : '') +
+        (notes ? `${notes}\n\n` : '') +
+        `Purchase from the shop to earn entries automatically!`;
+
+      try {
+        if (imageFileId) {
+          await _bot.telegram.sendPhoto(process.env.CHANNEL_ID, imageFileId, {
+            caption: announcement,
+            parse_mode: 'Markdown',
+          });
+        } else {
+          await _bot.telegram.sendMessage(process.env.CHANNEL_ID, announcement, {
+            parse_mode: 'Markdown',
+          });
+        }
+      } catch (err) {
+        console.error('[Giveaway] Failed to post channel announcement:', err.message);
+      }
+    }
+
     await ctx.reply(
-      `✅ Giveaway pool *${pool.title}* is now active!\n\nEntries are added automatically when invoices are confirmed as paid.`,
+      `✅ Giveaway *${pool.title}* is now active!\n\nEntries are added automatically when invoices are confirmed as paid.`,
       { parse_mode: 'Markdown' }
     );
     return ctx.scene.leave();

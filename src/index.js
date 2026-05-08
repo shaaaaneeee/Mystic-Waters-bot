@@ -22,7 +22,7 @@ import { generateInvoiceForAdmin } from './services/invoiceService.js';
 import redis from '../config/redis.js';
 import { newProductWizard, NEW_PRODUCT_WIZARD_ID } from './scenes/newProductWizard.js';
 import { newAuctionWizard, NEW_AUCTION_WIZARD_ID } from './modules/auction/auctionWizard.js';
-import { newGiveawayWizard, NEW_GIVEAWAY_WIZARD_ID } from './scenes/newGiveawayWizard.js';
+import { newGiveawayWizard, NEW_GIVEAWAY_WIZARD_ID, initGiveawayWizard } from './scenes/newGiveawayWizard.js';
 import { scheduleWizard, SCHEDULE_WIZARD_ID, initScheduleWizard } from './modules/scheduler/scheduleWizard.js';
 import { init as initScheduler } from './modules/scheduler/schedulerService.js';
 import { InvoiceModel } from './models/invoice.js';
@@ -313,6 +313,7 @@ async function bootstrap() {
   console.log('[Bot] Username:', me.username);
 
   initScheduleWizard(bot);
+  initGiveawayWizard(bot);
   await initScheduler(bot);
 
   const PORT = parseInt(process.env.PORT || '3000', 10);

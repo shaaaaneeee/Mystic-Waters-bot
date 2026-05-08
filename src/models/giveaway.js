@@ -4,11 +4,11 @@ import { randomInt } from 'node:crypto';
 
 export const GiveawayModel = {
 
-  async createPool({ title, prizeDescription, notes, createdBy }) {
+  async createPool({ title, prizeDescription, notes, createdBy, imageFileId }) {
     const { rows } = await query(
-      `INSERT INTO giveaway_pools (title, prize_description, notes, created_by)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [title, prizeDescription || null, notes || null, createdBy]
+      `INSERT INTO giveaway_pools (title, prize_description, notes, created_by, image_file_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [title, prizeDescription || null, notes || null, createdBy, imageFileId || null]
     );
     return rows[0];
   },
