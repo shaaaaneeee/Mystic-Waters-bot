@@ -68,7 +68,29 @@ export async function runAuctionLifecycle(bot, adminTelegramId) {
   }
 
   const ended = await AuctionModel.endDue();
-  for (const auction of ended) {
+  for (let auction of ended) {
+    console.log(`[Auction] Ended: ${auction.name} (#${auction.id}), winner_user_id=${auction.winner_user_id}, winner_bid=${auction.winner_bid}`);
+
+    // Safety fallback: if endDue() didn't capture a winner, query auction_bids directly
+    if (!auction.winner_user_id) {
+      const { rows: bidRows } = await query(
+        `SELECT user_id, amount FROM auction_bids
+         WHERE auction_id = $1
+         ORDER BY amount DESC, created_at ASC
+         LIMIT 1`,
+        [auction.id]
+      );
+      if (bidRows[0]) {
+        console.log(`[Auction] Fallback winner found for #${auction.id}: user_id=${bidRows[0].user_id}, amount=${bidRows[0].amount}`);
+        // Persist the winner on the auction row
+        await query(
+          `UPDATE auctions SET winner_user_id = $1, winner_bid = $2 WHERE id = $3`,
+          [bidRows[0].user_id, bidRows[0].amount, auction.id]
+        );
+        auction = { ...auction, winner_user_id: bidRows[0].user_id, winner_bid: bidRows[0].amount };
+      }
+    }
+
     await notifyAdminAuctionEnded(bot, adminTelegramId, auction).catch(err =>
       console.error(`[Auction] Notify failed for #${auction.id}:`, err.message)
     );

@@ -75,10 +75,16 @@ export const AuctionModel = {
          ended_at       = NOW(),
          winner_user_id = (
            SELECT user_id FROM auction_bids
-           WHERE auction_id = a.id AND is_winning = TRUE
+           WHERE auction_id = a.id
+           ORDER BY amount DESC, created_at ASC
            LIMIT 1
          ),
-         winner_bid     = a.current_bid,
+         winner_bid     = (
+           SELECT amount FROM auction_bids
+           WHERE auction_id = a.id
+           ORDER BY amount DESC, created_at ASC
+           LIMIT 1
+         ),
          updated_at     = NOW()
        WHERE a.status = 'active' AND a.end_time <= NOW()
        RETURNING a.*`
