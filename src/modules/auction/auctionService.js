@@ -131,7 +131,7 @@ async function notifyAdminAuctionEnded(bot, adminTelegramId, auction) {
       await bot.sendMessage(
         process.env.COMMENT_GROUP_ID,
         `🔒 *Auction Closed: ${auction.name}*\n\nNo bids were placed. This auction has ended.`,
-        { parse_mode: 'Markdown', reply_to_message_id: auction.telegram_message_id }
+        { parse_mode: 'Markdown' }
       ).catch(err => console.error(`[Auction] Failed to post no-bids comment for #${auction.id}:`, err.message));
     }
     return;
@@ -161,7 +161,7 @@ async function notifyAdminAuctionEnded(bot, adminTelegramId, auction) {
       `Winner: ${handle}\n` +
       `Winning bid: *$${parseFloat(auction.winner_bid).toFixed(2)}*\n\n` +
       `Congratulations! 🎉 The seller will be in touch shortly.`,
-      { parse_mode: 'Markdown', reply_to_message_id: auction.telegram_message_id }
+      { parse_mode: 'Markdown' }
     ).catch(err => console.error(`[Auction] Failed to post winner comment for #${auction.id}:`, err.message));
   }
 }
