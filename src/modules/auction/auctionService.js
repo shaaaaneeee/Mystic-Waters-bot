@@ -112,11 +112,20 @@ async function createAuctionWinClaim(auction) {
 
 async function notifyAdminAuctionEnded(bot, adminTelegramId, auction) {
   if (!auction.winner_user_id) {
+    // Notify admin
     await bot.sendMessage(
       adminTelegramId,
       `🔔 Auction ended: *${auction.name}*\n\nNo bids were placed.`,
       { parse_mode: 'Markdown' }
     );
+    // Post in comments under the auction
+    if (process.env.COMMENT_GROUP_ID) {
+      await bot.sendMessage(
+        process.env.COMMENT_GROUP_ID,
+        `🔒 *Auction Closed: ${auction.name}*\n\nNo bids were placed. This auction has ended.`,
+        { parse_mode: 'Markdown', reply_to_message_id: auction.telegram_message_id }
+      ).catch(err => console.error(`[Auction] Failed to post no-bids comment for #${auction.id}:`, err.message));
+    }
     return;
   }
 
@@ -126,6 +135,7 @@ async function notifyAdminAuctionEnded(bot, adminTelegramId, auction) {
     ? (w.username ? `@${w.username}` : (w.first_name || `ID:${w.telegram_id}`))
     : 'Unknown';
 
+  // Notify admin
   await bot.sendMessage(
     adminTelegramId,
     `🏆 *Auction Ended: ${auction.name}*\n\n` +
@@ -134,4 +144,16 @@ async function notifyAdminAuctionEnded(bot, adminTelegramId, auction) {
     `Use \`/invoice ${handle}\` to generate their invoice.`,
     { parse_mode: 'Markdown' }
   );
+
+  // Post winner announcement in comments under the auction
+  if (process.env.COMMENT_GROUP_ID) {
+    await bot.sendMessage(
+      process.env.COMMENT_GROUP_ID,
+      `🏆 *Auction Ended!*\n\n` +
+      `Winner: ${handle}\n` +
+      `Winning bid: *$${parseFloat(auction.winner_bid).toFixed(2)}*\n\n` +
+      `Congratulations! 🎉 The seller will be in touch shortly.`,
+      { parse_mode: 'Markdown', reply_to_message_id: auction.telegram_message_id }
+    ).catch(err => console.error(`[Auction] Failed to post winner comment for #${auction.id}:`, err.message));
+  }
 }
