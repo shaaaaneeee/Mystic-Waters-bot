@@ -72,6 +72,41 @@ export async function runAuctionLifecycle(bot, adminTelegramId) {
     await notifyAdminAuctionEnded(bot, adminTelegramId, auction).catch(err =>
       console.error(`[Auction] Notify failed for #${auction.id}:`, err.message)
     );
+    if (auction.winner_user_id && auction.winner_bid) {
+      await createAuctionWinClaim(auction).catch(err =>
+        console.error(`[Auction] Failed to create win claim for #${auction.id}:`, err.message)
+      );
+    }
+  }
+}
+
+// Creates a product + confirmed claim for the auction winner so they appear in /pending
+async function createAuctionWinClaim(auction) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    // Create a product entry representing the auction win
+    const { rows: [product] } = await client.query(
+      `INSERT INTO products (telegram_message_id, name, price, quantity_total, quantity_remaining, status)
+       VALUES ($1, $2, $3, 1, 0, 'sold_out')
+       RETURNING *`,
+      [auction.telegram_message_id, `${auction.name} (Auction Win)`, auction.winner_bid]
+    );
+
+    // Create a confirmed claim for the winner
+    await client.query(
+      `INSERT INTO claims (user_id, product_id, status) VALUES ($1, $2, 'confirmed')`,
+      [auction.winner_user_id, product.id]
+    );
+
+    await client.query('COMMIT');
+    console.log(`[Auction] Win claim created for auction #${auction.id}, user #${auction.winner_user_id}`);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
 }
 
