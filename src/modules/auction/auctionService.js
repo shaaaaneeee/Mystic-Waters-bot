@@ -80,23 +80,30 @@ export async function runAuctionLifecycle(bot, adminTelegramId) {
   }
 }
 
-// Creates a product + confirmed claim for the auction winner so they appear in /pending
+// Creates a product + confirmed claim for the auction winner so they appear in /pending.
+// Uses a negative synthetic telegram_message_id (-auction.id) to avoid clashing with
+// real channel post IDs. Fully idempotent — safe to call multiple times.
 async function createAuctionWinClaim(auction) {
+  const syntheticMsgId = -auction.id; // negative = never a real Telegram message ID
+
   const client = await getClient();
   try {
     await client.query('BEGIN');
 
-    // Create a product entry representing the auction win
+    // Upsert the product — if it already exists (re-run), just return it
     const { rows: [product] } = await client.query(
       `INSERT INTO products (telegram_message_id, name, price, quantity_total, quantity_remaining, status)
        VALUES ($1, $2, $3, 1, 0, 'sold_out')
+       ON CONFLICT (telegram_message_id) DO UPDATE SET name = EXCLUDED.name
        RETURNING *`,
-      [auction.telegram_message_id, `${auction.name} (Auction Win)`, auction.winner_bid]
+      [syntheticMsgId, `${auction.name} (Auction Win)`, auction.winner_bid]
     );
 
-    // Create a confirmed claim for the winner
+    // Upsert the claim — if it already exists, do nothing
     await client.query(
-      `INSERT INTO claims (user_id, product_id, status) VALUES ($1, $2, 'confirmed')`,
+      `INSERT INTO claims (user_id, product_id, status)
+       VALUES ($1, $2, 'confirmed')
+       ON CONFLICT (user_id, product_id) DO NOTHING`,
       [auction.winner_user_id, product.id]
     );
 
@@ -104,6 +111,7 @@ async function createAuctionWinClaim(auction) {
     console.log(`[Auction] Win claim created for auction #${auction.id}, user #${auction.winner_user_id}`);
   } catch (err) {
     await client.query('ROLLBACK');
+    console.error(`[Auction] createAuctionWinClaim error for #${auction.id}:`, err.message);
     throw err;
   } finally {
     client.release();
