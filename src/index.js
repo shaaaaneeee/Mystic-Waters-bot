@@ -202,6 +202,30 @@ bot.on('callback_query', async (ctx) => {
   }
 });
 
+// ── Auto-capture discussion group message ID when channel post is forwarded ──
+// When a channel has a linked discussion group, Telegram auto-forwards every
+// channel post into the group. That forwarded copy has a different message_id
+// than the channel post. We store it so end-of-auction comments thread correctly.
+bot.on('message', async (ctx, next) => {
+  const msg = ctx.message;
+  if (!process.env.COMMENT_GROUP_ID) return next();
+  if (String(msg.chat?.id) !== String(process.env.COMMENT_GROUP_ID)) return next();
+  const fwdChannelId = msg.forward_from_chat?.id;
+  if (!fwdChannelId || String(fwdChannelId) !== String(process.env.CHANNEL_ID)) return next();
+
+  const channelMsgId  = msg.forward_from_message_id;
+  const groupMsgId    = msg.message_id;
+  if (!channelMsgId || !groupMsgId) return next();
+
+  await query(
+    `UPDATE auctions SET discussion_message_id = $1
+     WHERE telegram_message_id = $2 AND discussion_message_id IS NULL`,
+    [groupMsgId, channelMsgId]
+  ).catch(err => console.error('[Bot] Failed to store discussion_message_id:', err.message));
+
+  return next();
+});
+
 // ── Forward channel post in admin DM → choose product or auction ──
 bot.on('message', async (ctx, next) => {
   const msg = ctx.message;

@@ -22,7 +22,7 @@ export async function handleClaim(ctx) {
   const postType = regRows[0]?.post_type;
 
   if (postType === 'auction') {
-    if (/^bid\s+\d+(?:\.\d{1,2})?$/i.test(text)) return handleBid(ctx);
+    if (/^\d+(?:\.\d{1,2})?$/.test(text)) return handleBid(ctx);
     return; // non-bid message on auction post — ignore
   }
 
