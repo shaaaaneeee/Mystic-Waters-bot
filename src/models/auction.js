@@ -98,11 +98,7 @@ export const AuctionModel = {
       `UPDATE auctions SET
          current_bid       = $3,
          current_leader_id = $2,
-         end_time          = CASE
-           WHEN end_time - NOW() < INTERVAL '2 minutes'
-           THEN end_time + INTERVAL '2 minutes'
-           ELSE end_time
-         END,
+         end_time          = GREATEST(end_time, NOW() + INTERVAL '2 minutes'),
          updated_at = NOW()
        WHERE id = $1
          AND status = 'active'
