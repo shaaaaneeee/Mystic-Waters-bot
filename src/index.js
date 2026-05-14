@@ -13,7 +13,7 @@ import {
   handleAdminStart, handleHelp,
   handleConfirmPaid, handleDeleteInvoice, handleDeleteInvoiceConfirm,
   handleInvoiceHistory, cancelInvoiceById, confirmPaidById,
-  handleAuctionBids, handleEndAuction, handleCancelAuction,
+  handleAuctionBids, handleTotalBid, handleEndAuction, handleCancelAuction,
   handleDrawGiveaway, handleGiveawayStats, handleClearGiveaway, handleClearGiveawayConfirm,
   handleListScheduled, handleDeleteScheduled, handleEditScheduled,
   handleAuctions,
@@ -56,6 +56,7 @@ bot.command('confirmpaid',     adminOnly, handleConfirmPaid);
 bot.command('deleteinvoice',   adminOnly, handleDeleteInvoice);
 bot.command('createauction',   adminOnly, (ctx) => ctx.scene.enter(NEW_AUCTION_WIZARD_ID));
 bot.command('auctionbids',     adminOnly, (ctx) => handleAuctionBids(ctx));
+bot.command('totalbid',        adminOnly, (ctx) => handleTotalBid(ctx));
 bot.command('endauction',      adminOnly, (ctx) => handleEndAuction(ctx));
 bot.command('cancelauction',   adminOnly, (ctx) => handleCancelAuction(ctx));
 bot.command('newgiveaway',     adminOnly, (ctx) => ctx.scene.enter(NEW_GIVEAWAY_WIZARD_ID));

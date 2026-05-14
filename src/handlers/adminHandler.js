@@ -443,6 +443,55 @@ export async function handleAuctionBids(ctx, overrideMsgId = null) {
   );
 }
 
+// ── /totalbid <item name> ─────────────────────────────────────────
+export async function handleTotalBid(ctx) {
+  const name = ctx.message?.text?.split(' ').slice(1).join(' ').trim();
+  if (!name) {
+    return ctx.reply('Usage: `/totalbid <item name>`', { parse_mode: 'Markdown' });
+  }
+
+  // Find auctions whose name contains the search term (case-insensitive)
+  const { rows: auctions } = await query(
+    `SELECT * FROM auctions WHERE name ILIKE $1 ORDER BY created_at DESC LIMIT 5`,
+    [`%${name}%`]
+  );
+
+  if (auctions.length === 0) {
+    return ctx.reply(`❌ No auction found matching *${name}*.`, { parse_mode: 'Markdown' });
+  }
+
+  // If multiple matches, pick the most recent one and note it
+  const auction = auctions[0];
+  const multiNote = auctions.length > 1
+    ? `\n_Multiple matches found — showing most recent. Be more specific if needed._\n`
+    : '';
+
+  const bids = await AuctionBidModel.listForAuction(auction.id);
+
+  const statusEmoji = { active: '🟢', upcoming: '🕐', ended: '🔒', cancelled: '❌' }[auction.status] || '❓';
+  const header =
+    `🔨 *${auction.name}*  ${statusEmoji} ${auction.status}\n` +
+    (auction.current_bid
+      ? `💰 Current/winning bid: *$${parseFloat(auction.current_bid).toFixed(2)}*\n`
+      : `💰 Starting bid: *$${parseFloat(auction.starting_bid).toFixed(2)}*\n`) +
+    multiNote;
+
+  if (bids.length === 0) {
+    return ctx.reply(header + '\nNo bids placed yet.', { parse_mode: 'Markdown' });
+  }
+
+  const lines = bids.map((b, i) => {
+    const handle = b.username ? `@${b.username}` : (b.first_name || `ID:${b.telegram_id}`);
+    const crown  = b.is_winning ? ' 👑' : '';
+    return `${i + 1}. ${handle} — *$${parseFloat(b.amount).toFixed(2)}*${crown}`;
+  });
+
+  return ctx.reply(
+    header + `\n*All bids (${bids.length}):*\n` + lines.join('\n'),
+    { parse_mode: 'Markdown' }
+  );
+}
+
 export async function handleEndAuction(ctx, overrideMsgId = null) {
   const rawMsgId = overrideMsgId !== null ? String(overrideMsgId) : ctx.message?.text?.split(' ')[1];
   if (!rawMsgId) return ctx.reply('Usage: `/endauction <post_id>`', { parse_mode: 'Markdown' });
