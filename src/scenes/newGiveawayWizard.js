@@ -64,10 +64,9 @@ export const newGiveawayWizard = new Scenes.WizardScene(
     if (ctx.message?.photo) {
       const photos = ctx.message.photo;
       ctx.wizard.state.imageFileId = photos[photos.length - 1].file_id;
-      await ctx.answerCbQuery?.();
     } else if (ctx.callbackQuery?.data === 'skip_giveaway_image') {
       ctx.wizard.state.imageFileId = null;
-      await ctx.answerCbQuery('No image — skipping.');
+      await ctx.answerCbQuery('No image — skipping.').catch(() => {});
     } else {
       await ctx.reply('Please send a photo or tap Skip.');
       return;
