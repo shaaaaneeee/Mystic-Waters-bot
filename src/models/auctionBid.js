@@ -23,7 +23,7 @@ export const AuctionBidModel = {
        FROM auction_bids ab
        JOIN users u ON u.id = ab.user_id
        WHERE ab.auction_id = $1
-       ORDER BY ab.amount DESC, ab.created_at ASC`,
+       ORDER BY ab.amount DESC`,
       [auctionId]
     );
     return rows;

@@ -76,7 +76,7 @@ export async function runAuctionLifecycle(bot, adminTelegramId) {
       const { rows: bidRows } = await query(
         `SELECT user_id, amount FROM auction_bids
          WHERE auction_id = $1
-         ORDER BY amount DESC, created_at ASC
+         ORDER BY amount DESC
          LIMIT 1`,
         [auction.id]
       );

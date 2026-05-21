@@ -76,13 +76,13 @@ export const AuctionModel = {
          winner_user_id = (
            SELECT user_id FROM auction_bids
            WHERE auction_id = a.id
-           ORDER BY amount DESC, created_at ASC
+           ORDER BY amount DESC
            LIMIT 1
          ),
          winner_bid     = (
            SELECT amount FROM auction_bids
            WHERE auction_id = a.id
-           ORDER BY amount DESC, created_at ASC
+           ORDER BY amount DESC
            LIMIT 1
          ),
          updated_at     = NOW()
