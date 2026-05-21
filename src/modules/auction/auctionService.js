@@ -141,7 +141,7 @@ async function createAuctionWinClaim(auction) {
 }
 
 async function notifyAdminAuctionEnded(bot, adminTelegramId, auction) {
-  // Build optional reply_to so the comment threads under the auction post
+  // Build optional reply_to so comments thread under the auction post
   const threadOpts = auction.discussion_message_id
     ? { reply_to_message_id: auction.discussion_message_id }
     : {};
@@ -153,13 +153,19 @@ async function notifyAdminAuctionEnded(bot, adminTelegramId, auction) {
       `🔔 Auction ended: *${auction.name}*\n\nNo bids were placed.`,
       { parse_mode: 'Markdown' }
     );
-    // Post in comments under the auction
+
+    const noBidsText =
+      `🔒 *Auction Closed: ${auction.name}*\n\nNo bids were placed. This auction has ended.`;
+
+    // Post in channel
+    if (process.env.CHANNEL_ID) {
+      await bot.sendMessage(process.env.CHANNEL_ID, noBidsText, { parse_mode: 'Markdown' })
+        .catch(err => console.error(`[Auction] Failed to post channel no-bids for #${auction.id}:`, err.message));
+    }
+    // Post in comments under the auction post
     if (process.env.COMMENT_GROUP_ID) {
-      await bot.sendMessage(
-        process.env.COMMENT_GROUP_ID,
-        `🔒 *Auction Closed: ${auction.name}*\n\nNo bids were placed. This auction has ended.`,
-        { parse_mode: 'Markdown', ...threadOpts }
-      ).catch(err => console.error(`[Auction] Failed to post no-bids comment for #${auction.id}:`, err.message));
+      await bot.sendMessage(process.env.COMMENT_GROUP_ID, noBidsText, { parse_mode: 'Markdown', ...threadOpts })
+        .catch(err => console.error(`[Auction] Failed to post group no-bids for #${auction.id}:`, err.message));
     }
     return;
   }
@@ -180,15 +186,20 @@ async function notifyAdminAuctionEnded(bot, adminTelegramId, auction) {
     { parse_mode: 'Markdown' }
   );
 
-  // Post winner announcement in comments under the auction
+  const winnerText =
+    `🏆 *Auction Closed: ${auction.name}*\n\n` +
+    `Winner: ${handle}\n` +
+    `Winning bid: *$${parseFloat(auction.winner_bid).toFixed(2)}*\n\n` +
+    `Congratulations! 🎉 The seller will be in touch shortly.`;
+
+  // Post in channel
+  if (process.env.CHANNEL_ID) {
+    await bot.sendMessage(process.env.CHANNEL_ID, winnerText, { parse_mode: 'Markdown' })
+      .catch(err => console.error(`[Auction] Failed to post channel winner for #${auction.id}:`, err.message));
+  }
+  // Post in comments under the auction post
   if (process.env.COMMENT_GROUP_ID) {
-    await bot.sendMessage(
-      process.env.COMMENT_GROUP_ID,
-      `🏆 *Auction Ended!*\n\n` +
-      `Winner: ${handle}\n` +
-      `Winning bid: *$${parseFloat(auction.winner_bid).toFixed(2)}*\n\n` +
-      `Congratulations! 🎉 The seller will be in touch shortly.`,
-      { parse_mode: 'Markdown', ...threadOpts }
-    ).catch(err => console.error(`[Auction] Failed to post winner comment for #${auction.id}:`, err.message));
+    await bot.sendMessage(process.env.COMMENT_GROUP_ID, winnerText, { parse_mode: 'Markdown', ...threadOpts })
+      .catch(err => console.error(`[Auction] Failed to post group winner for #${auction.id}:`, err.message));
   }
 }
