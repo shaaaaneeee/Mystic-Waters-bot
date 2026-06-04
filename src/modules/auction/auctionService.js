@@ -1,23 +1,24 @@
 // src/modules/auction/auctionService.js
-import redis from '../../../config/redis.js';
 import { getClient, query } from '../../../config/database.js';
 import { AuctionModel } from '../../models/auction.js';
 import { AuctionBidModel } from '../../models/auctionBid.js';
 import { UserModel } from '../../models/user.js';
 
-const LOCK_PREFIX = 'auction:lock:';
-const LOCK_TTL_MS = 5000;
+// In-memory lock — safe since Railway runs a single bot instance
+const activeLocks = new Set();
 
-async function acquireLock(auctionId) {
-  return (await redis.set(LOCK_PREFIX + auctionId, '1', 'NX', 'PX', LOCK_TTL_MS)) === 'OK';
+function acquireLock(auctionId) {
+  if (activeLocks.has(auctionId)) return false;
+  activeLocks.add(auctionId);
+  return true;
 }
 
-async function releaseLock(auctionId) {
-  await redis.del(LOCK_PREFIX + auctionId);
+function releaseLock(auctionId) {
+  activeLocks.delete(auctionId);
 }
 
 export async function placeBid({ telegramUser, auction, amount }) {
-  const lockAcquired = await acquireLock(auction.id);
+  const lockAcquired = acquireLock(auction.id);
   if (!lockAcquired) return { success: false, reason: 'busy' };
 
   const client = await getClient();

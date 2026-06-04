@@ -19,7 +19,6 @@ import {
   handleAuctions,
 } from './handlers/adminHandler.js';
 import { generateInvoiceForAdmin } from './services/invoiceService.js';
-import redis from '../config/redis.js';
 import { newProductWizard, NEW_PRODUCT_WIZARD_ID } from './scenes/newProductWizard.js';
 import { newAuctionWizard, NEW_AUCTION_WIZARD_ID } from './modules/auction/auctionWizard.js';
 import { newGiveawayWizard, NEW_GIVEAWAY_WIZARD_ID, initGiveawayWizard } from './scenes/newGiveawayWizard.js';
@@ -331,8 +330,6 @@ app.post(WEBHOOK_PATH, (req, res) => {
 app.get('/health', (_, res) => res.json({ status: 'ok', ts: Date.now() }));
 
 async function bootstrap() {
-  await redis.connect();
-
   const me = await bot.telegram.getMe();
   bot.options.username = me.username;
   console.log('[Bot] Username:', me.username);
@@ -355,8 +352,8 @@ async function bootstrap() {
   }
 }
 
-process.once('SIGINT',  () => { bot.stop('SIGINT');  redis.disconnect(); });
-process.once('SIGTERM', () => { bot.stop('SIGTERM'); redis.disconnect(); });
+process.once('SIGINT',  () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
 bootstrap().catch((err) => {
   console.error('[Boot] Fatal error:', err);
