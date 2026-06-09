@@ -122,6 +122,65 @@ export async function handleAuctions(ctx, page = 0) {
     : ctx.reply(text, opts);
 }
 
+// ── /auctionstatus ───────────────────────────────────────────────
+export async function handleAuctionStatus(ctx) {
+  const { rows } = await query(
+    `SELECT
+       a.id, a.name, a.status, a.starting_bid, a.current_bid,
+       a.end_time, a.start_time,
+       u.username       AS top_username,
+       u.first_name     AS top_first_name,
+       u.telegram_id    AS top_telegram_id
+     FROM auctions a
+     LEFT JOIN auction_bids ab ON ab.id = (
+       SELECT id FROM auction_bids
+       WHERE auction_id = a.id
+       ORDER BY amount DESC
+       LIMIT 1
+     )
+     LEFT JOIN users u ON u.id = ab.user_id
+     WHERE a.status IN ('upcoming', 'active')
+     ORDER BY a.end_time ASC`
+  );
+
+  if (rows.length === 0) {
+    return ctx.reply('No active or upcoming auctions right now.', { parse_mode: 'Markdown' });
+  }
+
+  const SEP  = '─'.repeat(30);
+  const now  = Date.now();
+
+  const lines = rows.map(a => {
+    const endMs       = new Date(a.end_time).getTime();
+    const minsLeft    = Math.max(0, Math.round((endMs - now) / 60_000));
+    const endStr      = new Date(a.end_time).toLocaleString('en-SG', {
+      timeZone: 'Asia/Singapore',
+      hour:     '2-digit',
+      minute:   '2-digit',
+    });
+
+    const statusMark  = a.status === 'active' ? '🟢' : '🕐';
+    const bidStr      = a.current_bid != null
+      ? `$${parseFloat(a.current_bid).toFixed(2)}`
+      : `$${parseFloat(a.starting_bid).toFixed(2)} (starting)`;
+
+    const bidderStr   = a.top_username
+      ? `@${a.top_username}`
+      : a.top_first_name
+        ? a.top_first_name
+        : 'No bids yet';
+
+    return (
+      `${statusMark} *${a.name}*\n` +
+      `  Current Bid: ${bidStr}\n` +
+      `  Highest Bidder: ${bidderStr}\n` +
+      `  Ends At: ${endStr} SGT (~${minsLeft} min remaining)`
+    );
+  });
+
+  return ctx.reply(lines.join(`\n${SEP}\n`), { parse_mode: 'Markdown' });
+}
+
 // ── /claims <message_id> ─────────────────────────────────────────
 export async function handleViewClaims(ctx, overrideMsgId = null) {
   const rawMsgId = overrideMsgId !== null ? String(overrideMsgId) : ctx.message?.text?.split(' ')[1];

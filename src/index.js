@@ -16,7 +16,7 @@ import {
   handleAuctionBids, handleTotalBid, handleEndAuction, handleCancelAuction,
   handleDrawGiveaway, handleGiveawayStats, handleClearGiveaway, handleClearGiveawayConfirm,
   handleListScheduled, handleDeleteScheduled, handleEditScheduled,
-  handleAuctions,
+  handleAuctions, handleAuctionStatus,
 } from './handlers/adminHandler.js';
 import { generateInvoiceForAdmin } from './services/invoiceService.js';
 import { newProductWizard, NEW_PRODUCT_WIZARD_ID } from './scenes/newProductWizard.js';
@@ -46,6 +46,7 @@ bot.command('cancel',          adminOnly, (ctx) => ctx.reply('Nothing to cancel.
 bot.command('newproduct',      adminOnly, handleNewProduct);
 bot.command('stock',           adminOnly, (ctx) => handleStock(ctx));
 bot.command('auctions',        adminOnly, (ctx) => handleAuctions(ctx));
+bot.command('auctionstatus',   adminOnly, (ctx) => handleAuctionStatus(ctx));
 bot.command('claims',          adminOnly, (ctx) => handleViewClaims(ctx));
 bot.command('invoice',         adminOnly, handleSendInvoice);
 bot.command('invoiceall',      adminOnly, handleSendAllInvoices);
