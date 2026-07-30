@@ -123,6 +123,10 @@ export async function handleAuctions(ctx, page = 0) {
 }
 
 // ── /auctionstatus ───────────────────────────────────────────────
+function escHtml(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 export async function handleAuctionStatus(ctx) {
   const { rows } = await query(
     `SELECT
@@ -144,41 +148,41 @@ export async function handleAuctionStatus(ctx) {
   );
 
   if (rows.length === 0) {
-    return ctx.reply('No active or upcoming auctions right now.', { parse_mode: 'Markdown' });
+    return ctx.reply('No active or upcoming auctions right now.');
   }
 
-  const SEP  = '─'.repeat(30);
-  const now  = Date.now();
+  const SEP = '─'.repeat(30);
+  const now = Date.now();
 
   const lines = rows.map(a => {
-    const endMs       = new Date(a.end_time).getTime();
-    const minsLeft    = Math.max(0, Math.round((endMs - now) / 60_000));
-    const endStr      = new Date(a.end_time).toLocaleString('en-SG', {
+    const endMs    = new Date(a.end_time).getTime();
+    const minsLeft = Math.max(0, Math.round((endMs - now) / 60_000));
+    const endStr   = new Date(a.end_time).toLocaleString('en-SG', {
       timeZone: 'Asia/Singapore',
       hour:     '2-digit',
       minute:   '2-digit',
     });
 
-    const statusMark  = a.status === 'active' ? '🟢' : '🕐';
-    const bidStr      = a.current_bid != null
+    const statusMark = a.status === 'active' ? '🟢' : '🕐';
+    const bidStr     = a.current_bid != null
       ? `$${parseFloat(a.current_bid).toFixed(2)}`
       : `$${parseFloat(a.starting_bid).toFixed(2)} (starting)`;
 
-    const bidderStr   = a.top_username
-      ? `@${a.top_username}`
+    const bidderStr = a.top_username
+      ? `@${escHtml(a.top_username)}`
       : a.top_first_name
-        ? a.top_first_name
+        ? escHtml(a.top_first_name)
         : 'No bids yet';
 
     return (
-      `${statusMark} *${a.name}*\n` +
+      `${statusMark} <b>${escHtml(a.name)}</b>\n` +
       `  Current Bid: ${bidStr}\n` +
       `  Highest Bidder: ${bidderStr}\n` +
       `  Ends At: ${endStr} SGT (~${minsLeft} min remaining)`
     );
   });
 
-  return ctx.reply(lines.join(`\n${SEP}\n`), { parse_mode: 'Markdown' });
+  return ctx.reply(lines.join(`\n${SEP}\n`), { parse_mode: 'HTML' });
 }
 
 // ── /claims <message_id> ─────────────────────────────────────────
